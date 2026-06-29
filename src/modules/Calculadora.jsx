@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 
+// v2
 // ── Design tokens ──────────────────────────────────────────────
 // Subject: 3D printing pricing. Visual language pulls from the extrusion
 // process itself — layer lines, molten filament heat, machine precision.
