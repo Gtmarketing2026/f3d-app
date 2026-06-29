@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 const C = {
   bg: "#13151a", panel: "#1b1e26", panel2: "#222631", line: "#2e3342",
@@ -118,6 +119,19 @@ export default function Catalogo() {
   const [carrinho, setCarrinho] = useState({}); // {nome: qtd}
   const [nomeCliente, setNomeCliente] = useState("");
   const [contatoCliente, setContatoCliente] = useState("");
+  const [userId, setUserId] = useState("");
+  const [linkCopiado, setLinkCopiado] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => { if (user) setUserId(user.id); });
+  }, []);
+
+  const linkVitrine = `${window.location.origin}?vitrine=${userId}`;
+  const copiarLink = () => {
+    navigator.clipboard.writeText(linkVitrine);
+    setLinkCopiado(true);
+    setTimeout(() => setLinkCopiado(false), 2000);
+  };
 
   // vitrine: pedido personalizado (fora do catálogo)
   const [persoModal, setPersoModal] = useState(false);
@@ -444,6 +458,9 @@ export default function Catalogo() {
                 </label>
                 <button onClick={exportarCSV} style={btnTool(C.green)}>Exportar CSV</button>
                 <button onClick={exportarPDF} style={btnTool(C.heat)}>Exportar PDF</button>
+                <button onClick={copiarLink} style={btnTool(linkCopiado ? C.green : C.cyan)}>
+                  {linkCopiado ? "✓ Link copiado!" : "🔗 Compartilhar vitrine"}
+                </button>
               </div>
             </div>
 

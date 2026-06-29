@@ -114,7 +114,9 @@ function Row({ label, value, accent }) {
 export default function Calculadora() {
   // entradas da impressão
   const [pesoG, setPesoG] = useState(45);
-  const [tempoH, setTempoH] = useState(4.5);
+  const [tempoHoras, setTempoHoras] = useState(4);
+  const [tempoMinutos, setTempoMinutos] = useState(30);
+  const tempoH = tempoHoras + tempoMinutos / 60;
   const [precoKg, setPrecoKg] = useState(120);
   const [posProcH, setPosProcH] = useState(0.5);
   const [qtd, setQtd] = useState(1);
@@ -247,7 +249,7 @@ export default function Calculadora() {
       // imposto de nota (venda direta)
       impostoNFValor, precoComMargem,
     };
-  }, [pesoG, tempoH, precoKg, posProcH, qtd, extras, mktMin, mktMax, potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem, modoMkt, comissao, taxaFixa, imposto, freteEmbutido, usarImposto, impostoNF]);
+  }, [pesoG, tempoHoras, tempoMinutos, precoKg, posProcH, qtd, extras, mktMin, mktMax, potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem, modoMkt, comissao, taxaFixa, imposto, freteEmbutido, usarImposto, impostoNF]);
 
   const addExtra = () =>
     setExtras((p) => [...p, { id: Date.now(), nome: "", valor: "" }]);
@@ -270,7 +272,7 @@ export default function Calculadora() {
     const precoFinal = modoMkt ? calc.precoMkt : calc.finalPeca;
     // receita = todos os parâmetros de entrada, pra reabrir e recalcular
     const receita = {
-      pesoG, tempoH, precoKg, posProcH, qtd,
+      pesoG, tempoHoras, tempoMinutos, precoKg, posProcH, qtd,
       extras, mktMin, mktMax,
       potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora,
       taxaFalha, margem,
@@ -303,7 +305,10 @@ export default function Calculadora() {
     const r = p.receita;
     if (!r) return; // produtos antigos sem receita salva
     setNomeProduto(p.nome);
-    setPesoG(r.pesoG); setTempoH(r.tempoH); setPrecoKg(r.precoKg);
+    setPesoG(r.pesoG);
+    setTempoHoras(r.tempoHoras ?? Math.floor(r.tempoH ?? 0));
+    setTempoMinutos(r.tempoMinutos ?? Math.round(((r.tempoH ?? 0) % 1) * 60));
+    setPrecoKg(r.precoKg);
     setPosProcH(r.posProcH); setQtd(r.qtd);
     setExtras(r.extras || []); setMktMin(r.mktMin); setMktMax(r.mktMax);
     setPotenciaW(r.potenciaW); setTarifaKwh(r.tarifaKwh);
@@ -413,7 +418,21 @@ export default function Calculadora() {
               />
             </label>
             <NumInput label="Peso do filamento" suffix="g" value={pesoG} onChange={setPesoG} />
-            <NumInput label="Tempo de impressão" suffix="h" value={tempoH} onChange={setTempoH} step="0.1" />
+            <label style={{ display: "block", marginBottom: 14 }}>
+              <span style={{ display: "block", fontSize: 12, letterSpacing: 0.3, color: C.mute, marginBottom: 6 }}>
+                Tempo de impressão
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input type="number" min="0" step="1" value={tempoHoras} onChange={e => setTempoHoras(Math.max(0, parseInt(e.target.value) || 0))} style={field} />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: C.mute, pointerEvents: "none" }}>h</span>
+                </div>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input type="number" min="0" max="59" step="1" value={tempoMinutos} onChange={e => setTempoMinutos(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))} style={field} />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: C.mute, pointerEvents: "none" }}>min</span>
+                </div>
+              </div>
+            </label>
             <NumInput label="Preço do filamento" suffix="R$/kg" value={precoKg} onChange={setPrecoKg} />
             <NumInput label="Pós-processamento" suffix="h" value={posProcH} onChange={setPosProcH} step="0.1" />
             <NumInput label="Quantidade de peças" suffix="un" value={qtd} onChange={setQtd} />

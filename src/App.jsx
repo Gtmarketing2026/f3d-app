@@ -8,6 +8,7 @@ import Orcamentos from "./modules/Orcamentos";
 import Financeiro from "./modules/Financeiro";
 import Planos from "./modules/Planos";
 import Login from "./modules/Login";
+import Vitrine from "./modules/Vitrine";
 
 const C = {
   bg: "#0e1014", barra: "#15171e", line: "#2e3342", ink: "#eef1f6",
@@ -95,6 +96,11 @@ function BloqueioUpsell({ id, onPlanos }) {
 }
 
 export default function App() {
+  // Rota pública da vitrine: ?vitrine=USER_ID
+  const params = new URLSearchParams(window.location.search);
+  const vitrineId = params.get("vitrine");
+  if (vitrineId) return <Vitrine userId={vitrineId} />;
+
   const [session, setSession] = useState(undefined);
 
   useEffect(() => {

@@ -6,9 +6,6 @@ const ASAAS_KEY = Deno.env.get("ASAAS_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
 
-const PRECOS: Record<string, number> = { calculadora: 39, catalogo: 49, orcamentos: 39, financeiro: 49 };
-const PRECO_COMPLETO = 119;
-
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type",
@@ -29,8 +26,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401, headers: { ...CORS, "Content-Type": "application/json" } });
     }
 
-    const { plano, modulos, cpf } = await req.json();
-    const value = plano === "completo" ? PRECO_COMPLETO : modulos.reduce((s: number, m: string) => s + (PRECOS[m] ?? 0), 0);
+    const { plano, modulos, cpf, tipo, valor } = await req.json();
+    // tipo: "unico" | "mensal" | "atualizacao"
+    // valor: vem do frontend (preço correto por tipo)
 
     const { data: licenca } = await supabase.from("licencas").select("asaas_customer_id").eq("user_id", user.id).single();
     let customerId = licenca?.asaas_customer_id;
@@ -46,7 +44,6 @@ serve(async (req) => {
       customerId = cust.id;
       await supabase.from("licencas").update({ asaas_customer_id: customerId }).eq("user_id", user.id);
     } else {
-      // Atualiza CPF do cliente existente
       await fetch(`${ASAAS_URL}/customers/${customerId}`, {
         method: "PUT",
         headers: { "access_token": ASAAS_KEY, "Content-Type": "application/json" },
@@ -54,33 +51,59 @@ serve(async (req) => {
       });
     }
 
-    const externalReference = `${user.id}:${plano}:${modulos.join(",")}`;
+    const externalReference = `${user.id}:${plano}:${modulos.join(",")}:${tipo}`;
     const hoje = new Date().toISOString().split("T")[0];
 
-    const subRes = await fetch(`${ASAAS_URL}/subscriptions`, {
-      method: "POST",
-      headers: { "access_token": ASAAS_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customer: customerId,
-        billingType: "PIX",
-        value,
-        nextDueDate: hoje,
-        cycle: "MONTHLY",
-        description: `F3D – ${plano === "completo" ? "Plano Completo" : "Módulos: " + modulos.join(", ")}`,
-        externalReference,
-      }),
-    });
+    let paymentUrl: string;
 
-    const sub = await subRes.json();
-    if (sub.errors) throw new Error(sub.errors[0]?.description ?? "Erro no Asaas");
+    if (tipo === "unico") {
+      // Cobrança avulsa (não recorrente)
+      const pagRes = await fetch(`${ASAAS_URL}/payments`, {
+        method: "POST",
+        headers: { "access_token": ASAAS_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: "PIX",
+          value: valor,
+          dueDate: hoje,
+          description: `F3D – ${modulos.join(", ")} (pagamento único)`,
+          externalReference,
+        }),
+      });
+      const pag = await pagRes.json();
+      if (pag.errors) throw new Error(pag.errors[0]?.description ?? "Erro no Asaas");
+      paymentUrl = pag.invoiceUrl ?? `https://sandbox.asaas.com/i/${pag.id}`;
 
-    const cobrRes = await fetch(`${ASAAS_URL}/subscriptions/${sub.id}/payments`, {
-      headers: { "access_token": ASAAS_KEY },
-    });
-    const cobr = await cobrRes.json();
-    const paymentUrl = cobr.data?.[0]?.invoiceUrl ?? `https://sandbox.asaas.com/i/${sub.id}`;
+    } else {
+      // Assinatura mensal (catalogo, ou atualizações opcionais)
+      const descricao = tipo === "atualizacao"
+        ? `F3D – ${modulos.join(", ")} atualizações contínuas`
+        : `F3D – ${modulos.join(", ")} mensal`;
 
-    return new Response(JSON.stringify({ paymentUrl, subscriptionId: sub.id }), {
+      const subRes = await fetch(`${ASAAS_URL}/subscriptions`, {
+        method: "POST",
+        headers: { "access_token": ASAAS_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: "PIX",
+          value: valor,
+          nextDueDate: hoje,
+          cycle: "MONTHLY",
+          description: descricao,
+          externalReference,
+        }),
+      });
+      const sub = await subRes.json();
+      if (sub.errors) throw new Error(sub.errors[0]?.description ?? "Erro no Asaas");
+
+      const cobrRes = await fetch(`${ASAAS_URL}/subscriptions/${sub.id}/payments`, {
+        headers: { "access_token": ASAAS_KEY },
+      });
+      const cobr = await cobrRes.json();
+      paymentUrl = cobr.data?.[0]?.invoiceUrl ?? `https://sandbox.asaas.com/i/${sub.id}`;
+    }
+
+    return new Response(JSON.stringify({ paymentUrl }), {
       status: 200,
       headers: { ...CORS, "Content-Type": "application/json" },
     });
