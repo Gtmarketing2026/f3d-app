@@ -44,19 +44,27 @@ const PRESETS = [
   { id: "etsy", nome: "Etsy", comissao: 6.5, taxaFixa: 1.5 },
 ];
 
-function NumInput({ label, suffix, value, onChange, step = "1" }) {
+function NumInput({ label, suffix, value, onChange, step = "1", tooltip }) {
+  const [showTip, setShowTip] = React.useState(false);
   return (
     <label style={{ display: "block", marginBottom: 14 }}>
       <span
-        style={{
-          display: "block",
-          fontSize: 12,
-          letterSpacing: 0.3,
-          color: C.mute,
-          marginBottom: 6,
-        }}
+        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, letterSpacing: 0.3, color: C.mute, marginBottom: 6, position: "relative" }}
       >
         {label}
+        {tooltip && (
+          <span
+            onMouseEnter={() => setShowTip(true)}
+            onMouseLeave={() => setShowTip(false)}
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: `1px solid ${C.mute}`, fontSize: 10, cursor: "help", flexShrink: 0, userSelect: "none" }}>
+            ?
+            {showTip && (
+              <span style={{ position: "absolute", left: 0, top: "calc(100% + 4px)", background: "#2a2e3d", border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.ink, lineHeight: 1.5, width: 220, zIndex: 50, fontWeight: 400, letterSpacing: 0, whiteSpace: "normal" }}>
+                {tooltip}
+              </span>
+            )}
+          </span>
+        )}
       </span>
       <div style={{ position: "relative" }}>
         <input
@@ -435,7 +443,7 @@ export default function Calculadora() {
               </div>
             </label>
             <NumInput label="Preço do filamento" suffix="R$/kg" value={precoKg} onChange={setPrecoKg} />
-            <NumInput label="Pós-processamento" suffix="h" value={posProcH} onChange={setPosProcH} step="0.1" />
+            <NumInput label="Pós-processamento" suffix="h" value={posProcH} onChange={setPosProcH} step="0.1" tooltip="Tempo gasto após a impressão: retirar suportes, lixar, pintar, montar. Esse tempo é cobrado como mão de obra no custo final." />
             <NumInput label="Quantidade de peças" suffix="un" value={qtd} onChange={setQtd} />
 
             {/* custos extras opcionais */}
