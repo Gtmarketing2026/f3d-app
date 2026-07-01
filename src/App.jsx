@@ -6,6 +6,7 @@ import Calculadora from "./modules/Calculadora";
 import Catalogo from "./modules/Catalogo";
 import Orcamentos from "./modules/Orcamentos";
 import Financeiro from "./modules/Financeiro";
+import Estoque from "./modules/Estoque";
 import Planos from "./modules/Planos";
 import Login from "./modules/Login";
 import Vitrine from "./modules/Vitrine";
@@ -20,6 +21,7 @@ const COMPONENTES = {
   catalogo: Catalogo,
   orcamentos: Orcamentos,
   financeiro: Financeiro,
+  estoque: Estoque,
 };
 
 function AppInner() {

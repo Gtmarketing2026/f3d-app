@@ -38,14 +38,25 @@ export const MODULOS = {
     descricao: "Registra vendas e despesas, fluxo de caixa diário, despesas por categoria e indicadores do mês (receita, lucro, ticket médio).",
     icone: "💰",
     precoUnico: 29.90,
-    precoAtualizacao: 9.90,   // assinatura mensal opcional de atualizações
+    precoAtualizacao: 9.90,
     precoMensal: null,
     integraCom: ["catalogo", "orcamentos"],
     standalone: true,
   },
+  estoque: {
+    id: "estoque",
+    nome: "Estoque",
+    descricao: "Controle de filamentos com barra de consumo, produtos acabados com alertas de reposição e insumos como insertos, tintas e embalagens.",
+    icone: "📊",
+    precoUnico: 19.90,
+    precoAtualizacao: 9.90,
+    precoMensal: null,
+    integraCom: ["catalogo"],
+    standalone: true,
+  },
 };
 
-export const ORDEM_MODULOS = ["calculadora", "catalogo", "orcamentos", "financeiro"];
+export const ORDEM_MODULOS = ["calculadora", "catalogo", "orcamentos", "financeiro", "estoque"];
 
 // Licença
 const LICENCA_KEY = "app3d:licenca";
