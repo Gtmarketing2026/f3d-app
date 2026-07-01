@@ -178,6 +178,8 @@ export default function Calculadora() {
   const [taxaFalha, setTaxaFalha] = useState(padrao.taxaFalha ?? 8);
   const [margem, setMargem] = useState(padrao.margem ?? 60);
   const [padraoCustosSalvo, setPadraoCustosSalvo] = useState(false);
+  const [precoVarejo, setPrecoVarejo] = useState("");
+  const [precoAtacado, setPrecoAtacado] = useState("");
 
   const salvarPadraoCustos = () => {
     const dados = { potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem };
@@ -299,6 +301,8 @@ export default function Calculadora() {
       tempoH: parseFloat(tempoH) || 0,
       custo: calc.comFalhaPeca,
       preco: precoFinal,
+      precoVarejo: parseFloat(precoVarejo) || precoFinal,
+      precoAtacado: parseFloat(precoAtacado) || 0,
       lucro: calc.lucroPeca,
       receita,
     };
@@ -330,6 +334,8 @@ export default function Calculadora() {
     setModoMkt(r.modoMkt); setPresetId(r.presetId); setComissao(r.comissao);
     setTaxaFixa(r.taxaFixa); setImposto(r.imposto); setFreteEmbutido(r.freteEmbutido);
     setUsarImposto(r.usarImposto); setImpostoNF(r.impostoNF);
+    setPrecoVarejo(p.precoVarejo ? String(p.precoVarejo) : "");
+    setPrecoAtacado(p.precoAtacado ? String(p.precoAtacado) : "");
     setEditandoId(p.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -779,6 +785,52 @@ export default function Calculadora() {
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* preço varejo e atacado */}
+            <div style={{ ...panelStyle, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontSize: 12, color: C.heat, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Preços para o catálogo</div>
+
+              {/* varejo */}
+              <div>
+                <div style={{ fontSize: 12, color: C.mute, marginBottom: 6 }}>Preço varejo (1 unidade)</div>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.mute, pointerEvents: "none" }}>R$</span>
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={precoVarejo}
+                    placeholder={(modoMkt ? calc.precoMkt : calc.finalPeca).toFixed(2)}
+                    onChange={e => setPrecoVarejo(e.target.value)}
+                    style={{ ...field, paddingLeft: 36 }}
+                  />
+                </div>
+                {precoVarejo && parseFloat(precoVarejo) > 0 && (
+                  <div style={{ fontSize: 12, color: C.cyan, marginTop: 4 }}>
+                    Lucro: {brl(parseFloat(precoVarejo) - calc.comFalhaPeca)} ({((parseFloat(precoVarejo) - calc.comFalhaPeca) / parseFloat(precoVarejo) * 100).toFixed(0)}% sobre o preço)
+                  </div>
+                )}
+              </div>
+
+              {/* atacado */}
+              <div>
+                <div style={{ fontSize: 12, color: C.mute, marginBottom: 6 }}>Preço atacado (quantidade)</div>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.mute, pointerEvents: "none" }}>R$</span>
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={precoAtacado}
+                    placeholder="Opcional"
+                    onChange={e => setPrecoAtacado(e.target.value)}
+                    style={{ ...field, paddingLeft: 36 }}
+                  />
+                </div>
+                {precoAtacado && parseFloat(precoAtacado) > 0 && (
+                  <div style={{ fontSize: 12, color: C.cyan, marginTop: 4 }}>
+                    Lucro: {brl(parseFloat(precoAtacado) - calc.comFalhaPeca)} ({((parseFloat(precoAtacado) - calc.comFalhaPeca) / parseFloat(precoAtacado) * 100).toFixed(0)}% sobre o preço)
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: C.mute }}>Se não preencher, o preço sugerido será usado no catálogo.</div>
             </div>
 
             {/* importar para catálogo */}
