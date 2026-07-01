@@ -167,15 +167,24 @@ export default function Calculadora() {
     }
   };
 
-  // configurações de custo (no SaaS viriam das settings da conta)
-  const [potenciaW, setPotenciaW] = useState(250);
-  const [tarifaKwh, setTarifaKwh] = useState(0.95);
-  const [custoMaquina, setCustoMaquina] = useState(2500);
-  const [vidaUtilH, setVidaUtilH] = useState(5000);
-  const [manutHora, setManutHora] = useState(1.5);
-  const [maoObraHora, setMaoObraHora] = useState(25);
-  const [taxaFalha, setTaxaFalha] = useState(8);
-  const [margem, setMargem] = useState(60);
+  // configurações de custo — carrega padrão salvo pelo usuário
+  const padrao = (() => { try { return JSON.parse(localStorage.getItem("app3d:padrao_custos") || "{}"); } catch { return {}; } })();
+  const [potenciaW, setPotenciaW] = useState(padrao.potenciaW ?? 250);
+  const [tarifaKwh, setTarifaKwh] = useState(padrao.tarifaKwh ?? 0.95);
+  const [custoMaquina, setCustoMaquina] = useState(padrao.custoMaquina ?? 2500);
+  const [vidaUtilH, setVidaUtilH] = useState(padrao.vidaUtilH ?? 5000);
+  const [manutHora, setManutHora] = useState(padrao.manutHora ?? 1.5);
+  const [maoObraHora, setMaoObraHora] = useState(padrao.maoObraHora ?? 25);
+  const [taxaFalha, setTaxaFalha] = useState(padrao.taxaFalha ?? 8);
+  const [margem, setMargem] = useState(padrao.margem ?? 60);
+  const [padraoCustosSalvo, setPadraoCustosSalvo] = useState(false);
+
+  const salvarPadraoCustos = () => {
+    const dados = { potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem };
+    localStorage.setItem("app3d:padrao_custos", JSON.stringify(dados));
+    setPadraoCustosSalvo(true);
+    setTimeout(() => setPadraoCustosSalvo(false), 2000);
+  };
 
   const calc = useMemo(() => {
     const f = (x) => (x === "" || x === null || x === undefined) ? 0 : Number(x);
@@ -546,6 +555,14 @@ export default function Calculadora() {
             <NumInput label="Mão de obra (R$/h)" suffix="R$/h" value={maoObraHora} onChange={setMaoObraHora} />
             <NumInput label="Taxa de falha" suffix="%" value={taxaFalha} onChange={setTaxaFalha} />
             <NumInput label="Margem de lucro" suffix="%" value={margem} onChange={setMargem} />
+
+            <button onClick={salvarPadraoCustos}
+              style={{ width: "100%", padding: "10px 0", borderRadius: 9, border: `1px solid ${padraoCustosSalvo ? C.green : C.line}`, background: padraoCustosSalvo ? "#7bd88f18" : "transparent", color: padraoCustosSalvo ? C.green : C.mute, fontWeight: 700, fontSize: 13, cursor: "pointer", marginTop: 4, transition: "all .2s" }}>
+              {padraoCustosSalvo ? "✓ Padrão salvo!" : "💾 Salvar como meu padrão"}
+            </button>
+            <div style={{ fontSize: 11, color: C.mute, textAlign: "center", marginTop: 4 }}>
+              Esses valores serão carregados automaticamente em novos cálculos.
+            </div>
 
             {/* imposto de nota (venda direta) */}
             <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
