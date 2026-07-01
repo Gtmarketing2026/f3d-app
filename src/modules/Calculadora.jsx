@@ -180,6 +180,7 @@ export default function Calculadora() {
   const [padraoCustosSalvo, setPadraoCustosSalvo] = useState(false);
   const [precoVarejo, setPrecoVarejo] = useState("");
   const [precoAtacado, setPrecoAtacado] = useState("");
+  const [qtdAtacado, setQtdAtacado] = useState(10);
 
   const salvarPadraoCustos = () => {
     const dados = { potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem };
@@ -302,6 +303,7 @@ export default function Calculadora() {
       custo: calc.comFalhaPeca,
       precoVarejo: parseFloat(precoVarejo) || precoFinal,
       precoAtacado: parseFloat(precoAtacado) || 0,
+      qtdAtacado: parseInt(qtdAtacado) || 10,
       preco: parseFloat(precoVarejo) || precoFinal,
       lucro: (parseFloat(precoVarejo) || precoFinal) - calc.comFalhaPeca,
       receita,
@@ -336,6 +338,7 @@ export default function Calculadora() {
     setUsarImposto(r.usarImposto); setImpostoNF(r.impostoNF);
     setPrecoVarejo(p.precoVarejo ? String(p.precoVarejo) : "");
     setPrecoAtacado(p.precoAtacado ? String(p.precoAtacado) : "");
+    setQtdAtacado(p.qtdAtacado || 10);
     setEditandoId(p.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -814,19 +817,31 @@ export default function Calculadora() {
               {/* atacado */}
               <div>
                 <div style={{ fontSize: 12, color: C.mute, marginBottom: 6 }}>Preço atacado (quantidade)</div>
-                <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.mute, pointerEvents: "none" }}>R$</span>
-                  <input
-                    type="number" step="0.01" min="0"
-                    value={precoAtacado}
-                    placeholder="Opcional"
-                    onChange={e => setPrecoAtacado(e.target.value)}
-                    style={{ ...field, paddingLeft: 36 }}
-                  />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ position: "relative", flex: 2 }}>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: C.mute, pointerEvents: "none" }}>R$</span>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={precoAtacado}
+                      placeholder="Opcional"
+                      onChange={e => setPrecoAtacado(e.target.value)}
+                      style={{ ...field, paddingLeft: 36 }}
+                    />
+                  </div>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <input
+                      type="number" min="1" step="1"
+                      value={qtdAtacado}
+                      title="Quantidade mínima para atacado"
+                      onChange={e => setQtdAtacado(parseInt(e.target.value) || 1)}
+                      style={field}
+                    />
+                    <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: C.mute, pointerEvents: "none" }}>un+</span>
+                  </div>
                 </div>
                 {precoAtacado && parseFloat(precoAtacado) > 0 && (
                   <div style={{ fontSize: 12, color: C.cyan, marginTop: 4 }}>
-                    Lucro: {brl(parseFloat(precoAtacado) - calc.comFalhaPeca)} ({((parseFloat(precoAtacado) - calc.comFalhaPeca) / parseFloat(precoAtacado) * 100).toFixed(0)}% sobre o preço)
+                    A partir de {qtdAtacado} un · Lucro: {brl(parseFloat(precoAtacado) - calc.comFalhaPeca)} ({((parseFloat(precoAtacado) - calc.comFalhaPeca) / parseFloat(precoAtacado) * 100).toFixed(0)}%)
                   </div>
                 )}
               </div>
