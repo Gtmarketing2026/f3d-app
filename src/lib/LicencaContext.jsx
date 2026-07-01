@@ -1,5 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "./supabase";
+import { ORDEM_MODULOS } from "./modulos";
+
+const ADMIN_EMAILS = ["contato@cursosonlinevrrj.com.br"];
+const LICENCA_ADMIN = { modulos: ORDEM_MODULOS, plano: "admin" };
 
 const LicencaContext = createContext(null);
 
@@ -11,6 +15,11 @@ export function LicencaProvider({ children }) {
     async function fetchLicenca() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      if (ADMIN_EMAILS.includes(user.email)) {
+        setLicenca(LICENCA_ADMIN);
+        setLoading(false);
+        return;
+      }
       const { data } = await supabase
         .from("licencas")
         .select("modulos, plano")
