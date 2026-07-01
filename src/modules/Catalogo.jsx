@@ -484,14 +484,18 @@ export default function Catalogo() {
                         <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Varejo</th>
                         <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Atacado</th>
                         <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Lucro</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem</th>
+                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Varejo</th>
+                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Atacado</th>
                         <th className="noprint" style={{ padding: "0 0 10px", width: 80 }} />
                       </tr>
                     </thead>
                     <tbody>
                       {filtrados.map((p) => {
                         const varejo = p.precoVarejo ?? p.preco ?? 0;
-                        const margem = varejo > 0 ? ((varejo - p.custo) / varejo) * 100 : 0;
+                        const margemVarejo = varejo > 0 ? ((varejo - p.custo) / varejo) * 100 : 0;
+                        const fsOrdenadas = faixasOrdenadas(p);
+                        const precoAtacado = fsOrdenadas.length > 0 ? fsOrdenadas[0].preco : 0;
+                        const margemAtacado = precoAtacado > 0 ? ((precoAtacado - p.custo) / precoAtacado) * 100 : null;
                         return (
                           <tr key={p.id} style={{ borderTop: `1px solid ${C.line}` }}>
                             <td style={{ padding: "11px 8px 11px 0", fontWeight: 600 }}>
@@ -520,7 +524,12 @@ export default function Catalogo() {
                                 : <span style={{ color: C.line }}>—</span>}
                             </td>
                             <td style={{ padding: "11px 8px", textAlign: "right", color: C.cyan, fontVariantNumeric: "tabular-nums" }}>{brl(varejo - p.custo)}</td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", color: margem >= 40 ? C.green : margem >= 20 ? C.amber : C.red, fontVariantNumeric: "tabular-nums" }}>{margem.toFixed(0)}%</td>
+                            <td style={{ padding: "11px 8px", textAlign: "right", color: margemVarejo >= 40 ? C.green : margemVarejo >= 20 ? C.amber : C.red, fontVariantNumeric: "tabular-nums" }}>{margemVarejo.toFixed(0)}%</td>
+                            <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                              {margemAtacado !== null
+                                ? <span style={{ color: margemAtacado >= 40 ? C.green : margemAtacado >= 20 ? C.amber : C.red }}>{margemAtacado.toFixed(0)}%</span>
+                                : <span style={{ color: C.line }}>—</span>}
+                            </td>
                             <td className="noprint" style={{ padding: "11px 0", textAlign: "right" }}>
                               <button onClick={() => editar(p)} style={{ ...btnMini(C.mute), marginRight: 4 }}>editar</button>
                               <button onClick={() => excluir(p.id)} style={btnMini(C.mute)}>×</button>

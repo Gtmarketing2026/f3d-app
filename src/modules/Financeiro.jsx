@@ -81,11 +81,18 @@ function KPI({ titulo, valor, cor, sub }) {
   );
 }
 
+// ── helpers ───────────────────────────────────────────────────────
+const MESES_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const mesLabel = (ym) => {
+  const [y, m] = ym.split("-");
+  return `${MESES_PT[parseInt(m) - 1]}/${y.slice(2)}`;
+};
+
 export default function Financeiro() {
   const [catalogo, setCatalogo] = useState([]);
   const [vendas, setVendas] = useState([]);
   const [despesas, setDespesas] = useState([]);
-  const [aba, setAba] = useState("venda"); // venda | despesa
+  const [aba, setAba] = useState("venda"); // venda | despesa | dashboard
   const [mes, setMes] = useState(mesAtual());
 
   // formulário de venda
@@ -218,6 +225,23 @@ export default function Financeiro() {
     ...dados.saidas
   );
 
+  // ── histórico mensal para o dashboard ────────────────────────
+  const historico = useMemo(() => {
+    const meses = new Set([
+      ...vendas.map((v) => v.data.slice(0, 7)),
+      ...despesas.map((d) => d.data.slice(0, 7)),
+    ]);
+    return [...meses].sort().map((ym) => {
+      const vMes = vendas.filter((v) => v.data.startsWith(ym));
+      const dMes = despesas.filter((d) => d.data.startsWith(ym));
+      const receita = vMes.reduce((s, v) => s + v.valor, 0);
+      const custoVendas = vMes.reduce((s, v) => s + v.custo, 0);
+      const despTotal = dMes.reduce((s, d) => s + d.valor, 0);
+      const resultado = receita - custoVendas - despTotal;
+      return { ym, receita, despesas: custoVendas + despTotal, resultado };
+    });
+  }, [vendas, despesas]);
+
   const panel = {
     background: C.panel,
     border: `1px solid ${C.line}`,
@@ -245,7 +269,7 @@ export default function Financeiro() {
     >
       <div style={{ maxWidth: 1040, margin: "0 auto" }}>
         {/* header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
           <div>
             <h1 style={{ fontSize: 22, margin: 0, fontWeight: 700, letterSpacing: -0.3 }}>
               Financeiro
@@ -254,12 +278,151 @@ export default function Financeiro() {
               Vendas, despesas e fluxo de caixa.
             </p>
           </div>
-          <label>
-            <span style={{ ...label, marginBottom: 4 }}>Mês de referência</span>
-            <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} style={{ ...field, width: "auto" }} />
-          </label>
+          {aba !== "dashboard" && (
+            <label>
+              <span style={{ ...label, marginBottom: 4 }}>Mês de referência</span>
+              <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} style={{ ...field, width: "auto" }} />
+            </label>
+          )}
         </div>
 
+        {/* abas principais */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          {[["dashboard","📊 Dashboard geral"], ["mes","📅 Mês atual"]].map(([id, txt]) => {
+            const on = (id === "dashboard") === (aba === "dashboard");
+            const active = id === "dashboard" ? aba === "dashboard" : aba !== "dashboard";
+            return (
+              <button key={id}
+                onClick={() => { if (id === "dashboard") setAba("dashboard"); else if (aba === "dashboard") setAba("venda"); }}
+                style={{
+                  padding: "9px 18px", borderRadius: 9, cursor: "pointer", fontSize: 13.5, fontWeight: active ? 700 : 500,
+                  color: active ? C.heat : C.mute,
+                  background: active ? C.heatDim : "transparent",
+                  border: `1px solid ${active ? C.heat : C.line}`,
+                }}>
+                {txt}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── DASHBOARD GERAL ─────────────────────────────────────── */}
+        {aba === "dashboard" && (
+          <div>
+            {historico.length === 0 ? (
+              <div style={{ ...panel, textAlign: "center", padding: 48 }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+                <p style={{ color: C.mute, fontSize: 14 }}>Nenhum lançamento ainda. Registre vendas e despesas para ver o histórico.</p>
+              </div>
+            ) : (() => {
+              const maxVal = Math.max(1, ...historico.map((h) => Math.max(h.receita, h.despesas)));
+              const totalReceita = historico.reduce((s, h) => s + h.receita, 0);
+              const totalDesp = historico.reduce((s, h) => s + h.despesas, 0);
+              const totalResult = historico.reduce((s, h) => s + h.resultado, 0);
+              const melhor = historico.reduce((a, b) => b.resultado > a.resultado ? b : a, historico[0]);
+              return (
+                <>
+                  {/* KPIs totais */}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+                    <KPI titulo="Receita total" valor={brl(totalReceita)} cor={C.green} sub={`${historico.length} mes${historico.length > 1 ? "es" : ""}`} />
+                    <KPI titulo="Despesas totais" valor={brl(totalDesp)} cor={C.red} sub="custo + gastos" />
+                    <KPI titulo="Resultado acumulado" valor={brl(totalResult)} cor={totalResult >= 0 ? C.cyan : C.red} sub="todos os meses" />
+                    <KPI titulo="Melhor mês" valor={mesLabel(melhor.ym)} cor={C.heat} sub={brl(melhor.resultado)} />
+                  </div>
+
+                  {/* Gráfico mês a mês */}
+                  <div style={{ ...panel, marginBottom: 16 }}>
+                    <h2 style={heading}>Vendas × Despesas por mês</h2>
+                    <div style={{ overflowX: "auto" }}>
+                      <div style={{ display: "flex", alignItems: "flex-end", gap: 12, minWidth: historico.length * 72, height: 180, paddingBottom: 0 }}>
+                        {historico.map((h) => (
+                          <div key={h.ym} style={{ flex: 1, minWidth: 56, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, height: "100%", justifyContent: "flex-end" }}>
+                            <div style={{ width: "100%", display: "flex", gap: 3, alignItems: "flex-end", height: 150 }}>
+                              {/* barra receita */}
+                              <div title={`Receita: ${brl(h.receita)}`} style={{
+                                flex: 1, background: C.green, borderRadius: "4px 4px 0 0",
+                                height: `${(h.receita / maxVal) * 100}%`, minHeight: h.receita > 0 ? 4 : 0,
+                              }} />
+                              {/* barra despesas */}
+                              <div title={`Despesas: ${brl(h.despesas)}`} style={{
+                                flex: 1, background: C.red, borderRadius: "4px 4px 0 0",
+                                height: `${(h.despesas / maxVal) * 100}%`, minHeight: h.despesas > 0 ? 4 : 0,
+                              }} />
+                            </div>
+                            {/* resultado abaixo */}
+                            <div style={{ fontSize: 10.5, color: h.resultado >= 0 ? C.cyan : C.red, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                              {h.resultado >= 0 ? "+" : ""}{brl(h.resultado).replace("R$ ","R$")}
+                            </div>
+                            <div style={{ fontSize: 11, color: C.mute, whiteSpace: "nowrap" }}>{mesLabel(h.ym)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 20, marginTop: 14 }}>
+                      <span style={{ fontSize: 12, color: C.mute, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 10, height: 10, background: C.green, borderRadius: 2 }} /> Receita
+                      </span>
+                      <span style={{ fontSize: 12, color: C.mute, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 10, height: 10, background: C.red, borderRadius: 2 }} /> Despesas
+                      </span>
+                      <span style={{ fontSize: 12, color: C.mute, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 10, height: 10, background: C.cyan, borderRadius: 2 }} /> Resultado
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tabela resumo */}
+                  <div style={panel}>
+                    <h2 style={heading}>Resumo mensal</h2>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+                        <thead>
+                          <tr style={{ textAlign: "left", color: C.mute, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                            <th style={{ padding: "0 12px 10px 0" }}>Mês</th>
+                            <th style={{ padding: "0 12px 10px", textAlign: "right" }}>Receita</th>
+                            <th style={{ padding: "0 12px 10px", textAlign: "right" }}>Despesas</th>
+                            <th style={{ padding: "0 0 10px", textAlign: "right" }}>Resultado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...historico].reverse().map((h) => (
+                            <tr key={h.ym} style={{ borderTop: `1px solid ${C.line}` }}>
+                              <td style={{ padding: "10px 12px 10px 0", color: C.ink, fontWeight: 600 }}>
+                                <button onClick={() => { setMes(h.ym); setAba("venda"); }}
+                                  style={{ background: "none", border: "none", color: C.heat, cursor: "pointer", fontSize: 13, padding: 0, textDecoration: "underline" }}>
+                                  {mesLabel(h.ym)}
+                                </button>
+                              </td>
+                              <td style={{ padding: "10px 12px", textAlign: "right", color: C.green, fontVariantNumeric: "tabular-nums" }}>{brl(h.receita)}</td>
+                              <td style={{ padding: "10px 12px", textAlign: "right", color: C.red, fontVariantNumeric: "tabular-nums" }}>{brl(h.despesas)}</td>
+                              <td style={{ padding: "10px 0", textAlign: "right", color: h.resultado >= 0 ? C.cyan : C.red, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                {h.resultado >= 0 ? "+" : ""}{brl(h.resultado)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ borderTop: `2px solid ${C.line}` }}>
+                            <td style={{ padding: "10px 12px 0 0", color: C.mute, fontSize: 12 }}>TOTAL</td>
+                            <td style={{ padding: "10px 12px 0", textAlign: "right", color: C.green, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{brl(totalReceita)}</td>
+                            <td style={{ padding: "10px 12px 0", textAlign: "right", color: C.red, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{brl(totalDesp)}</td>
+                            <td style={{ padding: "10px 0 0", textAlign: "right", color: totalResult >= 0 ? C.cyan : C.red, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                              {totalResult >= 0 ? "+" : ""}{brl(totalResult)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── VISÃO MENSAL ─────────────────────────────────────────── */}
+        {aba !== "dashboard" && (
+          <>
         {/* KPIs */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
           <KPI titulo="Receita" valor={brl(dados.receita)} cor={C.green} sub={`${dados.nVendas} itens vendidos`} />
@@ -465,6 +628,8 @@ export default function Financeiro() {
             </div>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

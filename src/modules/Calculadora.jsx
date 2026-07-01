@@ -809,7 +809,7 @@ export default function Calculadora() {
                 </div>
                 {precoVarejo && parseFloat(precoVarejo) > 0 && (
                   <div style={{ fontSize: 12, color: C.cyan, marginTop: 4 }}>
-                    Lucro: {brl(parseFloat(precoVarejo) - calc.comFalhaPeca)} ({((parseFloat(precoVarejo) - calc.comFalhaPeca) / parseFloat(precoVarejo) * 100).toFixed(0)}% sobre o preço)
+                    Lucro: {brl(parseFloat(precoVarejo) - calc.comFalhaPeca)} · Margem: {((parseFloat(precoVarejo) - calc.comFalhaPeca) / parseFloat(precoVarejo) * 100).toFixed(0)}%
                   </div>
                 )}
               </div>
@@ -841,7 +841,7 @@ export default function Calculadora() {
                 </div>
                 {precoAtacado && parseFloat(precoAtacado) > 0 && (
                   <div style={{ fontSize: 12, color: C.cyan, marginTop: 4 }}>
-                    A partir de {qtdAtacado} un · Lucro: {brl(parseFloat(precoAtacado) - calc.comFalhaPeca)} ({((parseFloat(precoAtacado) - calc.comFalhaPeca) / parseFloat(precoAtacado) * 100).toFixed(0)}%)
+                    A partir de {qtdAtacado} un · Lucro: {brl(parseFloat(precoAtacado) - calc.comFalhaPeca)} · Margem: {((parseFloat(precoAtacado) - calc.comFalhaPeca) / parseFloat(precoAtacado) * 100).toFixed(0)}%
                   </div>
                 )}
               </div>
