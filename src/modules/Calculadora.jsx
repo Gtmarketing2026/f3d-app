@@ -58,7 +58,10 @@ function NumInput({ label, suffix, value, onChange, step = "1", tooltip }) {
           type="number"
           step={step}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.valueAsNumber;
+            onChange(isNaN(v) ? "" : v);
+          }}
           style={field}
         />
         {suffix && (
@@ -173,7 +176,7 @@ export default function Calculadora() {
   const [margem, setMargem] = useState(60);
 
   const calc = useMemo(() => {
-    const f = (x) => parseFloat(x) || 0;
+    const f = (x) => (x === "" || x === null || x === undefined) ? 0 : Number(x);
     const n = Math.max(1, parseInt(qtd) || 1);
 
     // custos por peça
