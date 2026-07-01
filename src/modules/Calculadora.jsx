@@ -117,7 +117,9 @@ export default function Calculadora() {
   const [tempoMinutos, setTempoMinutos] = useState(30);
   const tempoH = tempoHoras + tempoMinutos / 60;
   const [precoKg, setPrecoKg] = useState(120);
-  const [posProcH, setPosProcH] = useState(0.5);
+  const [posProcHoras, setPosProcHoras] = useState(0);
+  const [posProcMinutos, setPosProcMinutos] = useState(30);
+  const posProcH = posProcHoras + posProcMinutos / 60;
   const [qtd, setQtd] = useState(1);
   const [nomeProduto, setNomeProduto] = useState("");
 
@@ -248,7 +250,7 @@ export default function Calculadora() {
       // imposto de nota (venda direta)
       impostoNFValor, precoComMargem,
     };
-  }, [pesoG, tempoHoras, tempoMinutos, precoKg, posProcH, qtd, extras, mktMin, mktMax, potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem, modoMkt, comissao, taxaFixa, imposto, freteEmbutido, usarImposto, impostoNF]);
+  }, [pesoG, tempoHoras, tempoMinutos, precoKg, posProcHoras, posProcMinutos, qtd, extras, mktMin, mktMax, potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem, modoMkt, comissao, taxaFixa, imposto, freteEmbutido, usarImposto, impostoNF]);
 
   const addExtra = () =>
     setExtras((p) => [...p, { id: Date.now(), nome: "", valor: "" }]);
@@ -271,7 +273,7 @@ export default function Calculadora() {
     const precoFinal = modoMkt ? calc.precoMkt : calc.finalPeca;
     // receita = todos os parâmetros de entrada, pra reabrir e recalcular
     const receita = {
-      pesoG, tempoHoras, tempoMinutos, precoKg, posProcH, qtd,
+      pesoG, tempoHoras, tempoMinutos, precoKg, posProcHoras, posProcMinutos, qtd,
       extras, mktMin, mktMax,
       potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora,
       taxaFalha, margem,
@@ -308,7 +310,9 @@ export default function Calculadora() {
     setTempoHoras(r.tempoHoras ?? Math.floor(r.tempoH ?? 0));
     setTempoMinutos(r.tempoMinutos ?? Math.round(((r.tempoH ?? 0) % 1) * 60));
     setPrecoKg(r.precoKg);
-    setPosProcH(r.posProcH); setQtd(r.qtd);
+    setPosProcHoras(r.posProcHoras ?? Math.floor(r.posProcH ?? 0));
+    setPosProcMinutos(r.posProcMinutos ?? Math.round(((r.posProcH ?? 0) % 1) * 60));
+    setQtd(r.qtd);
     setExtras(r.extras || []); setMktMin(r.mktMin); setMktMax(r.mktMax);
     setPotenciaW(r.potenciaW); setTarifaKwh(r.tarifaKwh);
     setCustoMaquina(r.custoMaquina); setVidaUtilH(r.vidaUtilH);
@@ -433,7 +437,22 @@ export default function Calculadora() {
               </div>
             </label>
             <NumInput label="Preço do filamento" suffix="R$/kg" value={precoKg} onChange={setPrecoKg} />
-            <NumInput label="Pós-processamento" suffix="h" value={posProcH} onChange={setPosProcH} step="0.1" tooltip="Tempo gasto após a impressão: retirar suportes, lixar, pintar, montar. Esse tempo é cobrado como mão de obra no custo final." />
+            <label style={{ display: "block", marginBottom: 14 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, letterSpacing: 0.3, color: C.mute, marginBottom: 6 }}>
+                Mão de obra pós impressão
+                <span title="Tempo gasto após a impressão: retirar suportes, lixar, pintar, montar. Esse tempo é multiplicado pelo valor da mão de obra/h." style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: `1px solid ${C.mute}`, fontSize: 10, cursor: "help", flexShrink: 0, userSelect: "none" }}>?</span>
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input type="number" min="0" step="1" value={posProcHoras} onChange={e => setPosProcHoras(Math.max(0, parseInt(e.target.value) || 0))} style={field} />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: C.mute, pointerEvents: "none" }}>h</span>
+                </div>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input type="number" min="0" max="59" step="1" value={posProcMinutos} onChange={e => setPosProcMinutos(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))} style={field} />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: C.mute, pointerEvents: "none" }}>min</span>
+                </div>
+              </div>
+            </label>
             <NumInput label="Quantidade de peças" suffix="un" value={qtd} onChange={setQtd} />
 
             {/* custos extras opcionais */}
@@ -524,7 +543,7 @@ export default function Calculadora() {
             <NumInput label="Custo da máquina" suffix="R$" value={custoMaquina} onChange={setCustoMaquina} />
             <NumInput label="Vida útil estimada" suffix="h" value={vidaUtilH} onChange={setVidaUtilH} />
             <NumInput label="Manutenção" suffix="R$/h" value={manutHora} onChange={setManutHora} step="0.1" />
-            <NumInput label="Mão de obra" suffix="R$/h" value={maoObraHora} onChange={setMaoObraHora} />
+            <NumInput label="Mão de obra (R$/h)" suffix="R$/h" value={maoObraHora} onChange={setMaoObraHora} />
             <NumInput label="Taxa de falha" suffix="%" value={taxaFalha} onChange={setTaxaFalha} />
             <NumInput label="Margem de lucro" suffix="%" value={margem} onChange={setMargem} />
 
