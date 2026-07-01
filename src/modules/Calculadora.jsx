@@ -300,10 +300,10 @@ export default function Calculadora() {
       pesoG: parseFloat(pesoG) || 0,
       tempoH: parseFloat(tempoH) || 0,
       custo: calc.comFalhaPeca,
-      preco: precoFinal,
       precoVarejo: parseFloat(precoVarejo) || precoFinal,
       precoAtacado: parseFloat(precoAtacado) || 0,
-      lucro: calc.lucroPeca,
+      preco: parseFloat(precoVarejo) || precoFinal,
+      lucro: (parseFloat(precoVarejo) || precoFinal) - calc.comFalhaPeca,
       receita,
     };
     const lista = editandoId
