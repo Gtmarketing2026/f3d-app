@@ -691,7 +691,7 @@ export default function Calculadora() {
                 {brl(modoMkt ? calc.precoMkt : calc.finalPeca)}
               </div>
               <span style={{ fontSize: 13, color: C.cyan }}>
-                Lucro: {brl(calc.lucroPeca)} ({(modoMkt ? calc.margemMktReal : margem).toFixed(0)}%)
+                Lucro: {brl(calc.lucroPeca)} ({(modoMkt ? calc.margemMktReal : parseFloat(margem) || 0).toFixed(0)}%)
               </span>
 
               {!modoMkt && usarImposto && calc.impostoNFValor > 0 && (
