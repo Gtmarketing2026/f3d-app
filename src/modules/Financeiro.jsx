@@ -93,6 +93,7 @@ export default function Financeiro() {
   const [vendas, setVendas] = useState([]);
   const [despesas, setDespesas] = useState([]);
   const [aba, setAba] = useState("venda"); // venda | despesa | dashboard
+  const [verLancamentos, setVerLancamentos] = useState(null); // null | "vendas" | "despesas" | "todos"
   const [mes, setMes] = useState(mesAtual());
 
   // formulário de venda
@@ -267,6 +268,87 @@ export default function Financeiro() {
         padding: "32px 20px 60px",
       }}
     >
+      {/* ── MODAL LANÇAMENTOS ──────────────────────────────────── */}
+      {verLancamentos && (() => {
+        const filtro = verLancamentos;
+        const itens = [
+          ...(filtro !== "despesas" ? dados.vMes.map((v) => ({ ...v, tipo: "venda" })) : []),
+          ...(filtro !== "vendas"   ? dados.dMes.map((d) => ({ ...d, tipo: "despesa" })) : []),
+        ].sort((a, b) => b.data.localeCompare(a.data) || b.id - a.id);
+        const totalV = filtro !== "despesas" ? dados.vMes.reduce((s,v)=>s+v.valor,0) : 0;
+        const totalD = filtro !== "vendas"   ? dados.dMes.reduce((s,d)=>s+d.valor,0) : 0;
+        const titulo = filtro === "vendas" ? "Vendas" : filtro === "despesas" ? "Despesas" : "Lançamentos";
+        return (
+          <div onClick={() => setVerLancamentos(null)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000,
+            display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto",
+          }}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16,
+              width: "100%", maxWidth: 680, padding: 28,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: C.ink }}>{titulo} detalhados</div>
+                  <div style={{ fontSize: 13, color: C.mute, marginTop: 2 }}>{mesLabel(mes)} · {itens.length} lançamento{itens.length !== 1 ? "s" : ""}</div>
+                </div>
+                <button onClick={() => setVerLancamentos(null)} style={{ background: "none", border: "none", color: C.mute, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+              </div>
+
+              {/* totalizadores */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+                {filtro !== "despesas" && <div style={{ flex: 1, background: C.bg, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 3 }}>Total receita</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: C.green, fontVariantNumeric: "tabular-nums" }}>{brl(totalV)}</div>
+                </div>}
+                {filtro !== "vendas" && <div style={{ flex: 1, background: C.bg, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 3 }}>Total despesas</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: C.red, fontVariantNumeric: "tabular-nums" }}>{brl(totalD)}</div>
+                </div>}
+                {filtro === "todos" && <div style={{ flex: 1, background: C.bg, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 3 }}>Resultado</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: totalV - totalD >= 0 ? C.cyan : C.red, fontVariantNumeric: "tabular-nums" }}>{brl(totalV - totalD)}</div>
+                </div>}
+              </div>
+
+              {/* lista */}
+              {itens.length === 0 ? (
+                <p style={{ color: C.mute, fontSize: 13.5, textAlign: "center", padding: "24px 0" }}>Nenhum lançamento neste mês.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 7, maxHeight: 440, overflowY: "auto" }}>
+                  {itens.map((x) => (
+                    <div key={x.tipo + x.id} style={{ display: "flex", alignItems: "center", gap: 12, background: C.bg, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 14px" }}>
+                      <div style={{ width: 6, height: 32, borderRadius: 3, background: x.tipo === "venda" ? C.green : C.red, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {x.tipo === "venda" ? `${x.produto}${x.qtd > 1 ? ` ×${x.qtd}` : ""}` : x.desc}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: C.mute, marginTop: 2, display: "flex", gap: 10 }}>
+                          <span>{x.data.split("-").reverse().join("/")}</span>
+                          <span>·</span>
+                          <span>{x.tipo === "venda" ? x.canal : (CATEGORIAS.find((c) => c.id === x.categoria)?.nome || "—")}</span>
+                          {x.tipo === "venda" && x.custo > 0 && <>
+                            <span>·</span>
+                            <span>Custo {brl(x.custo)} · Lucro {brl(x.lucro)}</span>
+                          </>}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: x.tipo === "venda" ? C.green : C.red, flexShrink: 0 }}>
+                        {x.tipo === "venda" ? "+" : "−"}{brl(x.valor)}
+                      </span>
+                      <button onClick={() => { x.tipo === "venda" ? delVenda(x.id) : delDespesa(x.id); }}
+                        style={{ background: "transparent", border: "none", color: C.mute, cursor: "pointer", fontSize: 18, lineHeight: 1, flexShrink: 0 }} title="Remover">
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ maxWidth: 1040, margin: "0 auto" }}>
         {/* header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
@@ -434,6 +516,22 @@ export default function Financeiro() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 16, alignItems: "start" }}>
           {/* coluna esquerda: lançar */}
           <div style={panel}>
+            {/* botões de lançamentos detalhados */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <button onClick={() => setVerLancamentos("vendas")}
+                style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.line}`, background: "transparent", color: C.green, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                <span>↗</span> {dados.vMes.length} venda{dados.vMes.length !== 1 ? "s" : ""}
+              </button>
+              <button onClick={() => setVerLancamentos("despesas")}
+                style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.line}`, background: "transparent", color: C.red, fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                <span>↙</span> {dados.dMes.length} despesa{dados.dMes.length !== 1 ? "s" : ""}
+              </button>
+              <button onClick={() => setVerLancamentos("todos")}
+                style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.line}`, background: "transparent", color: C.mute, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                todos
+              </button>
+            </div>
+
             {/* abas */}
             <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
               {[["venda", "Nova venda"], ["despesa", "Nova despesa"]].map(([id, txt]) => {
