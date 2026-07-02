@@ -208,6 +208,16 @@ export default function Catalogo() {
   // ── import / export ───────────────────────────────────────────
   const exportarCSV = () => baixar("catalogo.csv", "\uFEFF" + toCSV(filtrados), "text/csv;charset=utf-8");
 
+  const baixarModeloCSV = () => {
+    const linhas = [
+      "nome,canal,descricao,custo,precoVarejo,faixas,imagem",
+      "Suporte para celular,Venda direta,Suporte articulado PLA,8.50,29.90,,",
+      "Vaso decorativo M,Instagram,Vaso 15cm PLA branco,12.00,45.00,10:38|50:30,",
+      "Organizador de gaveta,Mercado Livre,Kit 4 divisorias,18.00,59.90,,",
+    ];
+    baixar("modelo-catalogo.csv", "\uFEFF" + linhas.join("\n"), "text/csv;charset=utf-8");
+  };
+
   const importarCSV = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -456,6 +466,7 @@ export default function Catalogo() {
                   Importar CSV
                   <input type="file" accept=".csv,text/csv" onChange={importarCSV} style={{ display: "none" }} />
                 </label>
+                <button onClick={baixarModeloCSV} style={btnTool(C.mute)} title="Baixa um CSV de exemplo com as colunas corretas">Modelo CSV</button>
                 <button onClick={exportarCSV} style={btnTool(C.green)}>Exportar CSV</button>
                 <button onClick={exportarPDF} style={btnTool(C.heat)}>Exportar PDF</button>
                 <button onClick={copiarLink} style={btnTool(linkCopiado ? C.green : C.cyan)}>
