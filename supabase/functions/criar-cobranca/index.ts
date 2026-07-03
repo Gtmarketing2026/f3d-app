@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ASAAS_URL = "https://sandbox.asaas.com/api/v3";
+const ASAAS_URL = "https://api.asaas.com/v3";
 const ASAAS_KEY = Deno.env.get("ASAAS_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
@@ -72,7 +72,7 @@ serve(async (req) => {
       });
       const pag = await pagRes.json();
       if (pag.errors) throw new Error(pag.errors[0]?.description ?? "Erro no Asaas");
-      paymentUrl = pag.invoiceUrl ?? `https://sandbox.asaas.com/i/${pag.id}`;
+      paymentUrl = pag.invoiceUrl ?? `https://asaas.com/i/${pag.id}`;
 
     } else {
       // Assinatura mensal (catalogo, ou atualizações opcionais)
@@ -100,7 +100,7 @@ serve(async (req) => {
         headers: { "access_token": ASAAS_KEY },
       });
       const cobr = await cobrRes.json();
-      paymentUrl = cobr.data?.[0]?.invoiceUrl ?? `https://sandbox.asaas.com/i/${sub.id}`;
+      paymentUrl = cobr.data?.[0]?.invoiceUrl ?? `https://asaas.com/i/${sub.id}`;
     }
 
     return new Response(JSON.stringify({ paymentUrl }), {
