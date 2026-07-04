@@ -167,39 +167,47 @@ export default function Vitrine({ userId }) {
                 )}
               </div>
 
-              {categorias.length > 2 && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {categorias.map(cat => {
-                    const on = catAtiva === cat;
-                    return (
-                      <button key={cat} onClick={() => { setCatAtiva(cat); setSubcatAtiva("todos"); }} style={{
-                        padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: on ? 700 : 500,
-                        cursor: "pointer", border: `1px solid ${on ? C.heat : C.line}`,
-                        background: on ? C.heatDim : "transparent",
-                        color: on ? C.heat : C.mute,
-                      }}>
-                        {cat === "todos" ? "Todos" : cat}
-                      </button>
-                    );
-                  })}
+              {/* filtro por categoria */}
+              {categorias.length > 1 && (
+                <div>
+                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" }}>Categoria</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {categorias.map(cat => {
+                      const on = catAtiva === cat;
+                      return (
+                        <button key={cat} onClick={() => { setCatAtiva(cat); setSubcatAtiva("todos"); }} style={{
+                          padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: on ? 700 : 500,
+                          cursor: "pointer", border: `1px solid ${on ? C.heat : C.line}`,
+                          background: on ? C.heatDim : "transparent",
+                          color: on ? C.heat : C.mute,
+                        }}>
+                          {cat === "todos" ? "Todos" : cat}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {subcategorias.length > 2 && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 4 }}>
-                  {subcategorias.map(sub => {
-                    const on = subcatAtiva === sub;
-                    return (
-                      <button key={sub} onClick={() => setSubcatAtiva(sub)} style={{
-                        padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: on ? 700 : 400,
-                        cursor: "pointer", border: `1px solid ${on ? C.cyan : C.line}`,
-                        background: on ? "#37d6c522" : "transparent",
-                        color: on ? C.cyan : C.mute,
-                      }}>
-                        {sub === "todos" ? "Todas" : sub}
-                      </button>
-                    );
-                  })}
+              {/* filtro por subcategoria */}
+              {subcategorias.length > 1 && (
+                <div>
+                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" }}>Subcategoria</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {subcategorias.map(sub => {
+                      const on = subcatAtiva === sub;
+                      return (
+                        <button key={sub} onClick={() => setSubcatAtiva(sub)} style={{
+                          padding: "5px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: on ? 700 : 400,
+                          cursor: "pointer", border: `1px solid ${on ? C.cyan : C.line}`,
+                          background: on ? "#37d6c522" : "transparent",
+                          color: on ? C.cyan : C.mute,
+                        }}>
+                          {sub === "todos" ? "Todas" : sub}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
