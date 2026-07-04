@@ -13,6 +13,7 @@ const C = {
   cyan: "#37d6c5",
   green: "#7bd88f",
   red: "#ff5d6c",
+  amber: "#f4c14b",
 };
 
 const brl = (n) =>
@@ -101,6 +102,10 @@ export default function Financeiro() {
   const [vQtd, setVQtd] = useState(1);
   const [vValor, setVValor] = useState("");
   const [vData, setVData] = useState(hoje());
+  const [vCliente, setVCliente] = useState("");
+  const [vPagamento, setVPagamento] = useState("pix"); // pix | dinheiro | cartao
+  const [vParcelas, setVParcelas] = useState(1);
+  const [vStatus, setVStatus] = useState("pago"); // pago | parcial | pendente
 
   // formulário de despesa
   const [dDesc, setDDesc] = useState("");
@@ -152,14 +157,19 @@ export default function Financeiro() {
       id: Date.now(),
       produto: vProduto,
       canal: prod ? prod.canal : "—",
+      cliente: vCliente.trim(),
       qtd,
       valor: valor * qtd,
       custo: custoUnit * qtd,
       lucro: (valor - custoUnit) * qtd,
       data: vData,
+      pagamento: vPagamento,
+      parcelas: vPagamento === "cartao" ? (parseInt(vParcelas) || 1) : 1,
+      status: vStatus,
     };
     persistVendas([v, ...vendas]);
     setVProduto(""); setVQtd(1); setVValor(""); setVData(hoje());
+    setVCliente(""); setVPagamento("pix"); setVParcelas(1); setVStatus("pago");
   };
 
   const registrarDespesa = () => {
@@ -323,14 +333,14 @@ export default function Financeiro() {
                         <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {x.tipo === "venda" ? `${x.produto}${x.qtd > 1 ? ` ×${x.qtd}` : ""}` : x.desc}
                         </div>
-                        <div style={{ fontSize: 11.5, color: C.mute, marginTop: 2, display: "flex", gap: 10 }}>
+                        <div style={{ fontSize: 11.5, color: C.mute, marginTop: 2, display: "flex", flexWrap: "wrap", gap: 6 }}>
                           <span>{x.data.split("-").reverse().join("/")}</span>
                           <span>·</span>
                           <span>{x.tipo === "venda" ? x.canal : (CATEGORIAS.find((c) => c.id === x.categoria)?.nome || "—")}</span>
-                          {x.tipo === "venda" && x.custo > 0 && <>
-                            <span>·</span>
-                            <span>Custo {brl(x.custo)} · Lucro {brl(x.lucro)}</span>
-                          </>}
+                          {x.tipo === "venda" && x.cliente && <><span>·</span><span>{x.cliente}</span></>}
+                          {x.tipo === "venda" && x.pagamento && <><span>·</span><span style={{ color: x.pagamento === "pix" ? C.cyan : x.pagamento === "dinheiro" ? C.green : C.amber }}>{x.pagamento === "cartao" ? `Cartão${x.parcelas > 1 ? ` ${x.parcelas}x` : ""}` : x.pagamento === "pix" ? "PIX" : "Dinheiro"}</span></>}
+                          {x.tipo === "venda" && x.status && x.status !== "pago" && <><span>·</span><span style={{ color: x.status === "parcial" ? C.amber : C.red, fontWeight: 700 }}>{x.status === "parcial" ? "Parcialmente pago" : "Pendente"}</span></>}
+                          {x.tipo === "venda" && x.custo > 0 && <><span>·</span><span>Custo {brl(x.custo)} · Lucro {brl(x.lucro)}</span></>}
                         </div>
                       </div>
                       <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: x.tipo === "venda" ? C.green : C.red, flexShrink: 0 }}>
@@ -588,6 +598,59 @@ export default function Financeiro() {
                     <input type="number" step="0.01" placeholder="R$" value={vValor} onChange={(e) => setVValor(e.target.value)} style={field} />
                   </label>
                 </div>
+                <label style={{ display: "block", marginBottom: 14 }}>
+                  <span style={label}>Cliente (opcional)</span>
+                  <input placeholder="Nome do cliente" value={vCliente} onChange={(e) => setVCliente(e.target.value)} style={field} />
+                </label>
+
+                {/* forma de pagamento */}
+                <div style={{ marginBottom: 14 }}>
+                  <span style={label}>Forma de pagamento</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[["pix","PIX"],["dinheiro","Dinheiro"],["cartao","Cartão"]].map(([id, txt]) => {
+                      const on = vPagamento === id;
+                      return (
+                        <button key={id} onClick={() => { setVPagamento(id); if (id !== "cartao") setVParcelas(1); }}
+                          style={{ flex: 1, padding: "9px 6px", borderRadius: 9, border: `1px solid ${on ? C.cyan : C.line}`,
+                            background: on ? "#37d6c522" : "transparent", color: on ? C.cyan : C.mute,
+                            fontWeight: on ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
+                          {txt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* parcelas — só para cartão */}
+                {vPagamento === "cartao" && (
+                  <label style={{ display: "block", marginBottom: 14 }}>
+                    <span style={label}>Parcelas</span>
+                    <select value={vParcelas} onChange={(e) => setVParcelas(e.target.value)} style={field}>
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                        <option key={n} value={n}>{n}x {n > 1 ? `de ${brl((parseFloat(vValor) * (parseInt(vQtd)||1)) / n)}` : "(à vista)"}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {/* status de pagamento */}
+                <div style={{ marginBottom: 16 }}>
+                  <span style={label}>Status</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[["pago", C.green, "Pago"],["parcial", C.amber, "Parcialmente pago"],["pendente", C.red, "Pendente"]].map(([id, cor, txt]) => {
+                      const on = vStatus === id;
+                      return (
+                        <button key={id} onClick={() => setVStatus(id)}
+                          style={{ flex: 1, padding: "9px 4px", borderRadius: 9, border: `1px solid ${on ? cor : C.line}`,
+                            background: on ? `${cor}22` : "transparent", color: on ? cor : C.mute,
+                            fontWeight: on ? 700 : 500, fontSize: 12, cursor: "pointer" }}>
+                          {txt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <label style={{ display: "block", marginBottom: 16 }}>
                   <span style={label}>Data</span>
                   <input type="date" value={vData} onChange={(e) => setVData(e.target.value)} style={field} />
@@ -707,9 +770,16 @@ export default function Financeiro() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {x.tipo === "venda" ? `${x.produto}${x.qtd > 1 ? ` ×${x.qtd}` : ""}` : x.desc}
+                            {x.tipo === "venda" && x.status && x.status !== "pago" && (
+                              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: x.status === "parcial" ? C.amber : C.red, border: `1px solid`, borderRadius: 5, padding: "1px 6px" }}>
+                                {x.status === "parcial" ? "Parcial" : "Pendente"}
+                              </span>
+                            )}
                           </div>
                           <span style={{ fontSize: 11.5, color: C.mute }}>
                             {x.data.split("-").reverse().join("/")} · {x.tipo === "venda" ? x.canal : (CATEGORIAS.find((c) => c.id === x.categoria)?.nome || "—")}
+                            {x.tipo === "venda" && x.pagamento && ` · ${x.pagamento === "cartao" ? `Cartão${x.parcelas > 1 ? ` ${x.parcelas}x` : ""}` : x.pagamento === "pix" ? "PIX" : "Dinheiro"}`}
+                            {x.tipo === "venda" && x.cliente && ` · ${x.cliente}`}
                           </span>
                         </div>
                         <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: x.tipo === "venda" ? C.green : C.red }}>
