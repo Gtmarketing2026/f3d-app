@@ -827,7 +827,7 @@ export default function Catalogo() {
                   placeholder="Selecione ou crie…"
                 />
                 <datalist id="subcats-list">
-                  {(CATS[modal.categoria] || Object.values(CATS).flat()).map((s) => <option key={s} value={s} />)}
+                  {[...new Set(CATS[modal.categoria] || Object.values(CATS).flat())].map((s) => <option key={s} value={s} />)}
                 </datalist>
               </label>
             </div>
