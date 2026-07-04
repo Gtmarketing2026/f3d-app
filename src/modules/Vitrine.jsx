@@ -8,6 +8,9 @@ const C = {
 const brl = (n) => (n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Vitrine({ userId }) {
+  const params = new URLSearchParams(window.location.search);
+  const waNumber = params.get("wa") || "";
+
   const [produtos, setProdutos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -47,7 +50,7 @@ export default function Vitrine({ userId }) {
     if (!nomeCliente.trim() || itensCarrinho.length === 0) return;
     const linhas = itensCarrinho.map(i => `• ${i.nome} x${i.qtd} = ${brl(i.subtotal)}`).join("\n");
     const msg = `Olá! Sou ${nomeCliente} e gostaria de fazer um pedido:\n\n${linhas}\n\nTotal: ${brl(total)}`;
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
     setPedidoEnviado(true);
   };

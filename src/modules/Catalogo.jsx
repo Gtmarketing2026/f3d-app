@@ -121,12 +121,19 @@ export default function Catalogo() {
   const [contatoCliente, setContatoCliente] = useState("");
   const [userId, setUserId] = useState("");
   const [linkCopiado, setLinkCopiado] = useState(false);
+  const [whatsapp, setWhatsapp] = useState(() => localStorage.getItem("app3d:whatsapp") || "");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => { if (user) setUserId(user.id); });
   }, []);
 
-  const linkVitrine = `${window.location.origin}?vitrine=${userId}`;
+  const salvarWhatsapp = (val) => {
+    const num = val.replace(/\D/g, "");
+    setWhatsapp(num);
+    localStorage.setItem("app3d:whatsapp", num);
+  };
+
+  const linkVitrine = `${window.location.origin}?vitrine=${userId}${whatsapp ? `&wa=${whatsapp}` : ""}`;
   const copiarLink = () => {
     navigator.clipboard.writeText(linkVitrine);
     setLinkCopiado(true);
@@ -460,7 +467,7 @@ export default function Catalogo() {
                   <option value="mais150">Acima de R$ 150</option>
                 </select>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <button onClick={novoProduto} style={{ ...btnTool(C.heat), background: C.heat, color: "#1a0d05", border: "none" }}>+ Novo produto</button>
                 <label style={{ ...btnTool(C.cyan), cursor: "pointer" }}>
                   Importar CSV
@@ -469,6 +476,19 @@ export default function Catalogo() {
                 <button onClick={baixarModeloCSV} style={btnTool(C.mute)} title="Baixa um CSV de exemplo com as colunas corretas">Modelo CSV</button>
                 <button onClick={exportarCSV} style={btnTool(C.green)}>Exportar CSV</button>
                 <button onClick={exportarPDF} style={btnTool(C.heat)}>Exportar PDF</button>
+              </div>
+              {/* WhatsApp + compartilhar vitrine */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none" }}>📱</span>
+                  <input
+                    type="tel"
+                    value={whatsapp}
+                    onChange={(e) => salvarWhatsapp(e.target.value)}
+                    placeholder="WhatsApp p/ pedidos (ex: 5521999990000)"
+                    style={{ ...field, width: 300, paddingLeft: 30, fontSize: 13 }}
+                  />
+                </div>
                 <button onClick={copiarLink} style={btnTool(linkCopiado ? C.green : C.cyan)}>
                   {linkCopiado ? "✓ Link copiado!" : "🔗 Compartilhar vitrine"}
                 </button>
