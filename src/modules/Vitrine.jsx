@@ -45,9 +45,16 @@ export default function Vitrine({ userId }) {
     return () => window.removeEventListener("keydown", fn);
   }, []);
 
-  const categorias = ["todos", ...Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)))];
+  // categorias ordenadas por qtd de produtos (mais populares primeiro)
+  const categorias = Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)));
+  const catOrdenadas = [...categorias].sort((a, b) =>
+    produtos.filter(p => p.categoria === b).length - produtos.filter(p => p.categoria === a).length
+  );
+  const catTop3 = catOrdenadas.slice(0, 3);
+  const catResto = catOrdenadas.slice(3);
+
   const subcategorias = catAtiva === "todos" ? [] :
-    ["todos", ...Array.from(new Set(produtos.filter(p => p.categoria === catAtiva).map(p => p.subcategoria).filter(Boolean)))];
+    Array.from(new Set(produtos.filter(p => p.categoria === catAtiva).map(p => p.subcategoria).filter(Boolean)));
 
   const produtosFiltrados = produtos.filter(p => {
     const termoBusca = busca.toLowerCase();
@@ -167,47 +174,66 @@ export default function Vitrine({ userId }) {
                 )}
               </div>
 
-              {/* filtro por categoria */}
-              {categorias.length > 1 && (
-                <div>
-                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" }}>Categoria</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {categorias.map(cat => {
-                      const on = catAtiva === cat;
-                      return (
-                        <button key={cat} onClick={() => { setCatAtiva(cat); setSubcatAtiva("todos"); }} style={{
-                          padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: on ? 700 : 500,
-                          cursor: "pointer", border: `1px solid ${on ? C.heat : C.line}`,
-                          background: on ? C.heatDim : "transparent",
-                          color: on ? C.heat : C.mute,
-                        }}>
-                          {cat === "todos" ? "Todos" : cat}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {/* filtro por categoria: top 3 como botões + restante em select */}
+              {catOrdenadas.length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  {/* botão "Todos" */}
+                  <button onClick={() => { setCatAtiva("todos"); setSubcatAtiva("todos"); }} style={{
+                    padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: catAtiva === "todos" ? 700 : 500,
+                    cursor: "pointer", border: `1px solid ${catAtiva === "todos" ? C.heat : C.line}`,
+                    background: catAtiva === "todos" ? C.heatDim : "transparent",
+                    color: catAtiva === "todos" ? C.heat : C.mute,
+                  }}>Todos</button>
+
+                  {/* top 3 como botões */}
+                  {catTop3.map(cat => {
+                    const on = catAtiva === cat;
+                    return (
+                      <button key={cat} onClick={() => { setCatAtiva(cat); setSubcatAtiva("todos"); }} style={{
+                        padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: on ? 700 : 500,
+                        cursor: "pointer", border: `1px solid ${on ? C.heat : C.line}`,
+                        background: on ? C.heatDim : "transparent",
+                        color: on ? C.heat : C.mute,
+                      }}>{cat}</button>
+                    );
+                  })}
+
+                  {/* restante em select */}
+                  {catResto.length > 0 && (
+                    <select
+                      value={catResto.includes(catAtiva) ? catAtiva : ""}
+                      onChange={e => { if (e.target.value) { setCatAtiva(e.target.value); setSubcatAtiva("todos"); } }}
+                      style={{
+                        background: catResto.includes(catAtiva) ? C.heatDim : C.panel,
+                        border: `1px solid ${catResto.includes(catAtiva) ? C.heat : C.line}`,
+                        borderRadius: 20, color: catResto.includes(catAtiva) ? C.heat : C.mute,
+                        padding: "7px 14px", fontSize: 13, cursor: "pointer", outline: "none",
+                      }}
+                    >
+                      <option value="">Mais categorias…</option>
+                      {catResto.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  )}
                 </div>
               )}
 
-              {/* filtro por subcategoria */}
-              {subcategorias.length > 1 && (
-                <div>
-                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 6, letterSpacing: 0.5, textTransform: "uppercase" }}>Subcategoria</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {subcategorias.map(sub => {
-                      const on = subcatAtiva === sub;
-                      return (
-                        <button key={sub} onClick={() => setSubcatAtiva(sub)} style={{
-                          padding: "5px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: on ? 700 : 400,
-                          cursor: "pointer", border: `1px solid ${on ? C.cyan : C.line}`,
-                          background: on ? "#37d6c522" : "transparent",
-                          color: on ? C.cyan : C.mute,
-                        }}>
-                          {sub === "todos" ? "Todas" : sub}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {/* subcategoria em select */}
+              {subcategorias.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: C.mute, flexShrink: 0 }}>Subcategoria:</span>
+                  <select
+                    value={subcatAtiva}
+                    onChange={e => setSubcatAtiva(e.target.value)}
+                    style={{
+                      background: subcatAtiva !== "todos" ? "#37d6c522" : C.panel,
+                      border: `1px solid ${subcatAtiva !== "todos" ? C.cyan : C.line}`,
+                      borderRadius: 20, color: subcatAtiva !== "todos" ? C.cyan : C.mute,
+                      padding: "7px 14px", fontSize: 13, cursor: "pointer", outline: "none",
+                    }}
+                  >
+                    <option value="todos">Todas</option>
+                    {subcategorias.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                  </select>
                 </div>
               )}
             </div>
