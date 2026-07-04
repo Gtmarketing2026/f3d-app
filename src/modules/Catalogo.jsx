@@ -806,17 +806,29 @@ export default function Catalogo() {
             <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
               <label style={{ display: "block", flex: 1 }}>
                 <span style={label}>Categoria</span>
-                <select value={modal.categoria} onChange={(e) => setModal({ ...modal, categoria: e.target.value, subcategoria: "" })} style={field}>
-                  <option value="">— Selecione —</option>
-                  {Object.keys(CATS).map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <input
+                  list="cats-list"
+                  value={modal.categoria}
+                  onChange={(e) => setModal({ ...modal, categoria: e.target.value, subcategoria: "" })}
+                  style={field}
+                  placeholder="Selecione ou crie…"
+                />
+                <datalist id="cats-list">
+                  {Object.keys(CATS).map((c) => <option key={c} value={c} />)}
+                </datalist>
               </label>
               <label style={{ display: "block", flex: 1 }}>
                 <span style={label}>Subcategoria</span>
-                <select value={modal.subcategoria} onChange={(e) => setModal({ ...modal, subcategoria: e.target.value })} style={field} disabled={!modal.categoria}>
-                  <option value="">— Selecione —</option>
-                  {(CATS[modal.categoria] || []).map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <input
+                  list="subcats-list"
+                  value={modal.subcategoria}
+                  onChange={(e) => setModal({ ...modal, subcategoria: e.target.value })}
+                  style={field}
+                  placeholder="Selecione ou crie…"
+                />
+                <datalist id="subcats-list">
+                  {(CATS[modal.categoria] || Object.values(CATS).flat()).map((s) => <option key={s} value={s} />)}
+                </datalist>
               </label>
             </div>
 
