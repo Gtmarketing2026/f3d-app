@@ -14,9 +14,11 @@ export default function Vitrine({ userId }) {
   const [produtos, setProdutos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [carrinho, setCarrinho] = useState({}); // { prodId: qtd }
+  const [carrinho, setCarrinho] = useState({});
   const [nomeCliente, setNomeCliente] = useState("");
+  const [obsCliente, setObsCliente] = useState("");
   const [pedidoEnviado, setPedidoEnviado] = useState(false);
+  const [imgAmpliada, setImgAmpliada] = useState(null); // url da imagem aberta
 
   useEffect(() => {
     async function fetchCatalogo() {
@@ -32,6 +34,13 @@ export default function Vitrine({ userId }) {
     if (userId) fetchCatalogo();
     else { setErro("Link inválido."); setCarregando(false); }
   }, [userId]);
+
+  // fecha lightbox com Esc
+  useEffect(() => {
+    const fn = (e) => { if (e.key === "Escape") setImgAmpliada(null); };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, []);
 
   const setQtd = (id, v) => setCarrinho(c => ({ ...c, [id]: Math.max(0, parseInt(v) || 0) }));
 
@@ -49,10 +58,18 @@ export default function Vitrine({ userId }) {
   const enviarPedido = () => {
     if (!nomeCliente.trim() || itensCarrinho.length === 0) return;
     const linhas = itensCarrinho.map(i => `• ${i.nome} x${i.qtd} = ${brl(i.subtotal)}`).join("\n");
-    const msg = `Olá! Sou ${nomeCliente} e gostaria de fazer um pedido:\n\n${linhas}\n\nTotal: ${brl(total)}`;
+    const obs = obsCliente.trim() ? `\n\nObservação: ${obsCliente.trim()}` : "";
+    const msg = `Olá! Sou ${nomeCliente} e gostaria de fazer um pedido:\n\n${linhas}\n\nTotal: ${brl(total)}${obs}`;
     const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
     setPedidoEnviado(true);
+  };
+
+  const refazerPedido = () => {
+    setCarrinho({});
+    setNomeCliente("");
+    setObsCliente("");
+    setPedidoEnviado(false);
   };
 
   const inputStyle = {
@@ -75,6 +92,29 @@ export default function Vitrine({ userId }) {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.ink, fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
+
+      {/* lightbox */}
+      {imgAmpliada && (
+        <div
+          onClick={() => setImgAmpliada(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 2000,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+            cursor: "zoom-out",
+          }}
+        >
+          <img
+            src={imgAmpliada}
+            alt=""
+            style={{ maxWidth: "90vw", maxHeight: "90vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 60px rgba(0,0,0,0.7)" }}
+          />
+          <button
+            onClick={() => setImgAmpliada(null)}
+            style={{ position: "absolute", top: 20, right: 24, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 26, borderRadius: 8, width: 40, height: 40, cursor: "pointer", lineHeight: 1 }}
+          >×</button>
+        </div>
+      )}
+
       {/* header */}
       <div style={{ background: C.panel, borderBottom: `1px solid ${C.line}`, padding: "16px 24px", display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 28, height: 28, borderRadius: 7, background: `linear-gradient(135deg, ${C.heat}, #ff9b5e)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>◳</div>
@@ -87,18 +127,46 @@ export default function Vitrine({ userId }) {
         ) : (
           <>
             <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px" }}>Produtos disponíveis</h1>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16, marginBottom: 40 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 40 }}>
               {produtos.map(p => (
                 <div key={p.id} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden" }}>
-                  {p.imagem && (
-                    <img src={p.imagem} alt={p.nome} style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                  {/* imagem quadrada feed */}
+                  {p.imagem ? (
+                    <div
+                      onClick={() => setImgAmpliada(p.imagem)}
+                      style={{ width: "100%", paddingBottom: "100%", position: "relative", cursor: "zoom-in", overflow: "hidden" }}
+                    >
+                      <img
+                        src={p.imagem}
+                        alt={p.nome}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                      <div style={{
+                        position: "absolute", inset: 0, background: "rgba(0,0,0,0)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.15s",
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.25)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0)"}
+                      >
+                        <span style={{ color: "#fff", fontSize: 22, opacity: 0, transition: "opacity 0.15s" }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                          onMouseLeave={e => e.currentTarget.style.opacity = 0}
+                        >🔍</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ width: "100%", paddingBottom: "100%", position: "relative", background: C.line }}>
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: C.mute, fontSize: 32 }}>◳</div>
+                    </div>
                   )}
-                  <div style={{ padding: 16 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{p.nome}</div>
-                    {p.descricao && <div style={{ fontSize: 12.5, color: C.mute, marginBottom: 10, lineHeight: 1.5 }}>{p.descricao}</div>}
-                    <div style={{ fontSize: 18, fontWeight: 800, color: C.heat, marginBottom: 8 }}>{brl(p.precoVarejo)}</div>
+
+                  <div style={{ padding: 14 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 4 }}>{p.nome}</div>
+                    {p.descricao && <div style={{ fontSize: 12, color: C.mute, marginBottom: 8, lineHeight: 1.5 }}>{p.descricao}</div>}
+                    <div style={{ fontSize: 17, fontWeight: 800, color: C.heat, marginBottom: 6 }}>{brl(p.precoVarejo)}</div>
                     {(p.faixas || []).length > 0 && (
-                      <div style={{ fontSize: 12, color: C.cyan, marginBottom: 10 }}>
+                      <div style={{ fontSize: 11.5, color: C.cyan, marginBottom: 8 }}>
                         {p.faixas.map(f => `${f.qtd}+ un → ${brl(f.preco)}`).join(" · ")}
                       </div>
                     )}
@@ -128,19 +196,32 @@ export default function Vitrine({ userId }) {
                 </div>
 
                 {pedidoEnviado ? (
-                  <div style={{ background: "#7bd88f18", border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 18px", fontSize: 14, color: C.green }}>
-                    ✓ Pedido enviado via WhatsApp! Aguarde o retorno.
+                  <div>
+                    <div style={{ background: "#7bd88f18", border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 18px", fontSize: 14, color: C.green, marginBottom: 14 }}>
+                      ✓ Pedido enviado via WhatsApp! Aguarde o retorno.
+                    </div>
+                    <button onClick={refazerPedido}
+                      style={{ padding: "11px 22px", borderRadius: 10, border: `1px solid ${C.line}`, background: "transparent", color: C.ink, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+                      ↺ Fazer novo pedido
+                    </button>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <input
                       placeholder="Seu nome"
                       value={nomeCliente}
                       onChange={e => setNomeCliente(e.target.value)}
-                      style={{ flex: 1, minWidth: 180, background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, color: C.ink, padding: "12px 14px", fontSize: 14, outline: "none" }}
+                      style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, color: C.ink, padding: "12px 14px", fontSize: 14, outline: "none" }}
+                    />
+                    <textarea
+                      placeholder="Observações (cor, tamanho, prazo, endereço…)"
+                      value={obsCliente}
+                      onChange={e => setObsCliente(e.target.value)}
+                      rows={3}
+                      style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, color: C.ink, padding: "12px 14px", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit" }}
                     />
                     <button onClick={enviarPedido} disabled={!nomeCliente.trim()}
-                      style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: nomeCliente.trim() ? C.heat : C.line, color: nomeCliente.trim() ? "#1a0d05" : C.mute, fontWeight: 700, fontSize: 14, cursor: nomeCliente.trim() ? "pointer" : "not-allowed" }}>
+                      style={{ padding: "13px 24px", borderRadius: 10, border: "none", background: nomeCliente.trim() ? C.heat : C.line, color: nomeCliente.trim() ? "#1a0d05" : C.mute, fontWeight: 700, fontSize: 14, cursor: nomeCliente.trim() ? "pointer" : "not-allowed" }}>
                       Enviar pedido via WhatsApp
                     </button>
                   </div>
