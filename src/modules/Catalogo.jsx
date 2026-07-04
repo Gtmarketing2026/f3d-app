@@ -33,13 +33,16 @@ export const CANAIS_VENDA = [
   { id: "magalu",       nome: "Magalu",                 taxa: 0.16  },
 ];
 
-// helper: lucro e margem líquidos após taxa do canal
-const calcCanal = (preco, custo, taxa) => {
-  if (!preco) return null;
-  const liquido = preco * (1 - taxa);
+// Dado o preço base (venda direta) e a taxa do canal,
+// calcula o preço que deve ser cobrado no canal para o vendedor receber o mesmo.
+// precoLista = precoBase / (1 - taxa)
+const precoParaCanal = (precoBase, custo, taxa) => {
+  if (!precoBase) return null;
+  const lista = taxa < 1 ? precoBase / (1 - taxa) : precoBase;
+  const liquido = lista * (1 - taxa); // ≈ precoBase
   const lucro = liquido - custo;
   const margem = liquido > 0 ? (lucro / liquido) * 100 : 0;
-  return { liquido, lucro, margem };
+  return { lista, liquido, lucro, margem };
 };
 
 // ── Categorias e subcategorias ─────────────────────────────────
@@ -556,9 +559,9 @@ export default function Catalogo() {
                   const labelCanal = canalInfo ? ` · ${canalInfo.nome} (taxa ${canalInfo.taxa > 0 ? `${(canalInfo.taxa*100).toFixed(1)}%` : "0%"})` : "";
                   return (
                     <div style={{ overflowX: "auto" }}>
-                      {canalInfo && (
+                      {canalInfo && canalInfo.taxa > 0 && (
                         <div style={{ marginBottom: 10, padding: "6px 12px", background: C.heatDim, borderRadius: 8, fontSize: 12.5, color: C.heat, fontWeight: 600 }}>
-                          Margens calculadas após taxa do canal: <strong>{canalInfo.nome}</strong> {canalInfo.taxa > 0 ? `(−${(canalInfo.taxa*100).toFixed(1)}% sobre o preço)` : "(sem taxa)"}
+                          Preços de listagem para: <strong>{canalInfo.nome}</strong> — taxa {(canalInfo.taxa * 100).toFixed(1)}% já embutida. Você recebe o mesmo líquido da venda direta.
                         </div>
                       )}
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 720 }}>
@@ -567,9 +570,9 @@ export default function Catalogo() {
                             <th style={{ padding: "0 8px 10px 0" }}>Produto</th>
                             <th style={{ padding: "0 8px 10px" }}>Canal</th>
                             <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Custo</th>
-                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Varejo</th>
-                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Atacado</th>
-                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Lucro Varejo{labelCanal}</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>{canalInfo && canalInfo.taxa > 0 ? `Varejo (${canalInfo.nome})` : "Varejo"}</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>{canalInfo && canalInfo.taxa > 0 ? "Atacado (lista)" : "Atacado"}</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Lucro Líq.</th>
                             <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Varejo</th>
                             <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Atacado</th>
                             <th className="noprint" style={{ padding: "0 0 10px", width: 80 }} />
@@ -580,9 +583,9 @@ export default function Catalogo() {
                             const varejo = p.precoVarejo ?? p.preco ?? 0;
                             const fsOrdenadas = faixasOrdenadas(p);
                             const precoAtacado = fsOrdenadas.length > 0 ? fsOrdenadas[0].preco : 0;
-                            // cálculo com taxa do canal selecionado
-                            const cv = calcCanal(varejo, p.custo, taxa);
-                            const ca = precoAtacado > 0 ? calcCanal(precoAtacado, p.custo, taxa) : null;
+                            // preço de listagem = precoBase / (1 - taxa) para o vendedor receber o mesmo
+                            const cv = precoParaCanal(varejo, p.custo, taxa);
+                            const ca = precoAtacado > 0 ? precoParaCanal(precoAtacado, p.custo, taxa) : null;
                             const corV = cv ? (cv.margem >= 40 ? C.green : cv.margem >= 20 ? C.amber : C.red) : C.mute;
                             const corA = ca ? (ca.margem >= 40 ? C.green : ca.margem >= 20 ? C.amber : C.red) : null;
                             return (
@@ -602,19 +605,24 @@ export default function Catalogo() {
                                 </td>
                                 <td style={{ padding: "11px 8px", color: C.mute, fontSize: 12.5 }}>{p.canal}</td>
                                 <td style={{ padding: "11px 8px", textAlign: "right", color: C.mute, fontVariantNumeric: "tabular-nums" }}>{brl(p.custo)}</td>
-                                <td style={{ padding: "11px 8px", textAlign: "right", color: C.heat, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{brl(varejo)}</td>
+                                {/* preço varejo: se canal com taxa, mostra preço lista; senão, preço direto */}
                                 <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                                  {temAtacado(p)
-                                    ? (() => {
-                                        const fs = faixasOrdenadas(p);
-                                        const menor = fs[fs.length - 1].preco;
-                                        return <span style={{ color: C.cyan }}>{brl(menor)} <span style={{ color: C.mute, fontSize: 11 }}>{fs.length} faixa{fs.length > 1 ? "s" : ""}</span></span>;
-                                      })()
-                                    : <span style={{ color: C.line }}>—</span>}
+                                  <span style={{ color: C.heat, fontWeight: 700 }}>{cv ? brl(cv.lista) : "—"}</span>
+                                  {taxa > 0 && cv && <div style={{ fontSize: 10.5, color: C.mute }}>direto {brl(varejo)}</div>}
+                                </td>
+                                {/* preço atacado: mesmo raciocínio */}
+                                <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                                  {temAtacado(p) ? (
+                                    ca ? (
+                                      <>
+                                        <span style={{ color: C.cyan, fontWeight: 700 }}>{brl(ca.lista)}</span>
+                                        {taxa > 0 && <div style={{ fontSize: 10.5, color: C.mute }}>direto {brl(precoAtacado)} · {fsOrdenadas.length} faixa{fsOrdenadas.length > 1 ? "s" : ""}</div>}
+                                      </>
+                                    ) : <span style={{ color: C.line }}>—</span>
+                                  ) : <span style={{ color: C.line }}>—</span>}
                                 </td>
                                 <td style={{ padding: "11px 8px", textAlign: "right", color: corV, fontVariantNumeric: "tabular-nums" }}>
                                   {cv ? brl(cv.lucro) : "—"}
-                                  {taxa > 0 && cv && <div style={{ fontSize: 10.5, color: C.mute }}>líq. {brl(cv.liquido)}</div>}
                                 </td>
                                 <td style={{ padding: "11px 8px", textAlign: "right", color: corV, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                                   {cv ? `${cv.margem.toFixed(0)}%` : "—"}
@@ -926,51 +934,64 @@ export default function Catalogo() {
               )}
             </div>
 
-            {/* preview de margens por canal */}
+            {/* preços por canal calculados automaticamente */}
             {(parseFloat(modal.precoVarejo) > 0 || (modal.faixas || []).some(f => parseFloat(f.preco) > 0)) && (() => {
               const custo = parseFloat(modal.custo) || 0;
               const varejo = parseFloat(modal.precoVarejo) || 0;
               const faixasValidas = (modal.faixas || []).filter(f => parseFloat(f.preco) > 0 && parseInt(f.qtd) > 0).sort((a, b) => a.qtd - b.qtd);
-              const atacado = faixasValidas.length > 0 ? parseFloat(faixasValidas[0].preco) : null;
+              const atacadoBase = faixasValidas.length > 0 ? parseFloat(faixasValidas[0].preco) : null;
               return (
                 <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginBottom: 18 }}>
-                  <span style={{ ...label, margin: "0 0 10px", fontSize: 11, letterSpacing: 1 }}>CÁLCULO POR CANAL DE VENDA</span>
+                  <span style={{ ...label, margin: "0 0 4px", fontSize: 11, letterSpacing: 1 }}>PREÇOS POR CANAL (automático)</span>
+                  <p style={{ margin: "0 0 10px", fontSize: 11, color: C.mute, lineHeight: 1.5 }}>
+                    Valor que deve ser cobrado em cada canal para você receber o mesmo líquido da venda direta{varejo > 0 ? ` (${brl(varejo)})` : ""}.
+                  </p>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                       <thead>
-                        <tr style={{ color: C.mute, fontSize: 11 }}>
-                          <th style={{ textAlign: "left", paddingBottom: 6, fontWeight: 500 }}>Canal</th>
-                          <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Taxa</th>
-                          {varejo > 0 && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Lucro Varejo</th>}
-                          {varejo > 0 && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Margem</th>}
-                          {atacado && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Lucro Atacado</th>}
-                          {atacado && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Margem</th>}
+                        <tr style={{ color: C.mute, fontSize: 11, borderBottom: `1px solid ${C.line}` }}>
+                          <th style={{ textAlign: "left", padding: "0 8px 6px 0", fontWeight: 500 }}>Canal</th>
+                          <th style={{ textAlign: "right", padding: "0 8px 6px", fontWeight: 500 }}>Taxa</th>
+                          {varejo > 0 && <th style={{ textAlign: "right", padding: "0 8px 6px", fontWeight: 500 }}>Preço Varejo</th>}
+                          {atacadoBase && <th style={{ textAlign: "right", padding: "0 8px 6px", fontWeight: 500 }}>Preço Atacado</th>}
+                          <th style={{ textAlign: "right", padding: "0 0 6px", fontWeight: 500 }}>Margem</th>
                         </tr>
                       </thead>
                       <tbody>
                         {CANAIS_VENDA.map(c => {
-                          const cv = varejo > 0 ? calcCanal(varejo, custo, c.taxa) : null;
-                          const ca = atacado ? calcCanal(atacado, custo, c.taxa) : null;
-                          const corV = cv ? (cv.margem >= 40 ? C.green : cv.margem >= 20 ? C.amber : C.red) : C.mute;
-                          const corA = ca ? (ca.margem >= 40 ? C.green : ca.margem >= 20 ? C.amber : C.red) : C.mute;
-                          const selected = CANAIS_VENDA.find(x => x.nome === modal.canal)?.id === c.id;
+                          const cv = varejo > 0 ? precoParaCanal(varejo, custo, c.taxa) : null;
+                          const ca = atacadoBase ? precoParaCanal(atacadoBase, custo, c.taxa) : null;
+                          const cor = cv ? (cv.margem >= 40 ? C.green : cv.margem >= 20 ? C.amber : C.red) : C.mute;
+                          const isDireto = c.taxa === 0;
                           return (
-                            <tr key={c.id} style={{ borderTop: `1px solid ${C.line}`, background: selected ? C.heatDim : "transparent" }}>
-                              <td style={{ padding: "7px 0", color: selected ? C.heat : C.ink, fontWeight: selected ? 700 : 400 }}>{c.nome}</td>
-                              <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: C.mute }}>{c.taxa > 0 ? `${(c.taxa * 100).toFixed(1)}%` : "—"}</td>
-                              {cv && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corV, fontVariantNumeric: "tabular-nums" }}>{brl(cv.lucro)}</td>}
-                              {cv && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corV, fontWeight: 700 }}>{cv.margem.toFixed(0)}%</td>}
-                              {ca && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corA, fontVariantNumeric: "tabular-nums" }}>{brl(ca.lucro)}</td>}
-                              {ca && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corA, fontWeight: 700 }}>{ca.margem.toFixed(0)}%</td>}
+                            <tr key={c.id} style={{ borderTop: `1px solid ${C.line}`, background: isDireto ? "#37d6c508" : "transparent" }}>
+                              <td style={{ padding: "8px 8px 8px 0", color: isDireto ? C.cyan : C.ink, fontWeight: isDireto ? 700 : 400, fontSize: 12 }}>
+                                {c.nome}{isDireto && <span style={{ marginLeft: 6, fontSize: 10, color: C.mute, fontWeight: 400 }}>base</span>}
+                              </td>
+                              <td style={{ padding: "8px", textAlign: "right", color: C.mute }}>
+                                {c.taxa > 0 ? `${(c.taxa * 100).toFixed(1)}%` : "—"}
+                              </td>
+                              {cv && (
+                                <td style={{ padding: "8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                                  <span style={{ color: isDireto ? C.ink : C.heat, fontWeight: 700 }}>{brl(cv.lista)}</span>
+                                  {c.taxa > 0 && <div style={{ fontSize: 10, color: C.mute }}>líq. {brl(cv.liquido)}</div>}
+                                </td>
+                              )}
+                              {ca && (
+                                <td style={{ padding: "8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                                  <span style={{ color: isDireto ? C.ink : C.cyan, fontWeight: 700 }}>{brl(ca.lista)}</span>
+                                  {c.taxa > 0 && <div style={{ fontSize: 10, color: C.mute }}>líq. {brl(ca.liquido)}</div>}
+                                </td>
+                              )}
+                              <td style={{ padding: "8px 0 8px 8px", textAlign: "right", color: cor, fontWeight: 700 }}>
+                                {cv ? `${cv.margem.toFixed(0)}%` : "—"}
+                              </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-                  <p style={{ fontSize: 11, color: C.mute, margin: "8px 0 0", lineHeight: 1.5 }}>
-                    Margem calculada sobre o valor líquido após a taxa do canal. Verde ≥ 40% · Amarelo ≥ 20% · Vermelho &lt; 20%.
-                  </p>
                 </div>
               );
             })()}
