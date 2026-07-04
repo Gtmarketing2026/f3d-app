@@ -32,6 +32,14 @@ const field = {
 const brl = (n) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// Custos extras pré-definidos (editáveis pelo usuário)
+const EXTRAS_PADRAO = [
+  { id: 1, nome: "Argola",    valor: 0.35 },
+  { id: 2, nome: "Pintura",   valor: 1.00 },
+  { id: 3, nome: "Embalagem", valor: 0.20 },
+  { id: 4, nome: "Impresso",  valor: 1.00 },
+];
+
 // Presets de marketplace — no SaaS, cada cliente edita/cria os seus.
 // Valores médios de referência (comissões variam por categoria/plano).
 const PRESETS = [
@@ -139,8 +147,10 @@ export default function Calculadora() {
     })();
   }, []);
 
-  // custos extras opcionais (por peça)
-  const [extras, setExtras] = useState([]);
+  // custos extras (pré-setados, editáveis)
+  const [extras, setExtras] = useState(() =>
+    EXTRAS_PADRAO.map((e) => ({ ...e, id: Date.now() + e.id }))
+  );
 
   // referência de mercado (informada pelo usuário)
   const [mktMin, setMktMin] = useState("");
@@ -495,11 +505,6 @@ export default function Calculadora() {
                   + Adicionar
                 </button>
               </div>
-              {extras.length === 0 && (
-                <p style={{ fontSize: 12.5, color: C.mute, margin: "0 0 4px", lineHeight: 1.5 }}>
-                  Embalagem, ímãs, parafusos, tinta, insertos — o que entrar na peça.
-                </p>
-              )}
               {extras.map((e) => (
                 <div key={e.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                   <input
@@ -534,23 +539,6 @@ export default function Calculadora() {
               ))}
             </div>
 
-            {/* referência de mercado */}
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
-              <span style={{ display: "block", fontSize: 12, color: C.mute, letterSpacing: 0.3, marginBottom: 4 }}>
-                Referência de mercado
-              </span>
-              <p style={{ fontSize: 12.5, color: C.mute, margin: "0 0 12px", lineHeight: 1.5 }}>
-                Por quanto peças parecidas vendem por aí? Serve de âncora — não é puxado automático.
-              </p>
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <NumInput label="Mínimo visto" suffix="R$" value={mktMin} onChange={setMktMin} step="0.01" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <NumInput label="Máximo visto" suffix="R$" value={mktMax} onChange={setMktMax} step="0.01" />
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* configs */}
