@@ -18,7 +18,9 @@ export default function Vitrine({ userId }) {
   const [nomeCliente, setNomeCliente] = useState("");
   const [obsCliente, setObsCliente] = useState("");
   const [pedidoEnviado, setPedidoEnviado] = useState(false);
-  const [imgAmpliada, setImgAmpliada] = useState(null); // url da imagem aberta
+  const [imgAmpliada, setImgAmpliada] = useState(null);
+  const [busca, setBusca] = useState("");
+  const [catAtiva, setCatAtiva] = useState("todos");
 
   useEffect(() => {
     async function fetchCatalogo() {
@@ -41,6 +43,18 @@ export default function Vitrine({ userId }) {
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
   }, []);
+
+  const categorias = ["todos", ...Array.from(new Set(produtos.map(p => p.canal).filter(Boolean)))];
+
+  const produtosFiltrados = produtos.filter(p => {
+    const termoBusca = busca.toLowerCase();
+    const bateCategoria = catAtiva === "todos" || p.canal === catAtiva;
+    const bateBusca = !termoBusca ||
+      p.nome?.toLowerCase().includes(termoBusca) ||
+      p.descricao?.toLowerCase().includes(termoBusca) ||
+      p.canal?.toLowerCase().includes(termoBusca);
+    return bateCategoria && bateBusca;
+  });
 
   const setQtd = (id, v) => setCarrinho(c => ({ ...c, [id]: Math.max(0, parseInt(v) || 0) }));
 
@@ -126,9 +140,55 @@ export default function Vitrine({ userId }) {
           <div style={{ textAlign: "center", color: C.mute, marginTop: 60 }}>Nenhum produto disponível ainda.</div>
         ) : (
           <>
-            <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px" }}>Produtos disponíveis</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 20px" }}>Produtos disponíveis</h1>
+
+            {/* busca + filtro */}
+            <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none" }}>🔍</span>
+                <input
+                  type="text"
+                  value={busca}
+                  onChange={e => setBusca(e.target.value)}
+                  placeholder="Buscar produto…"
+                  style={{
+                    width: "100%", boxSizing: "border-box", background: C.panel,
+                    border: `1px solid ${C.line}`, borderRadius: 10, color: C.ink,
+                    padding: "11px 14px 11px 40px", fontSize: 14, outline: "none",
+                  }}
+                />
+                {busca && (
+                  <button onClick={() => setBusca("")} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.mute, fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+                )}
+              </div>
+
+              {categorias.length > 2 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {categorias.map(cat => {
+                    const on = catAtiva === cat;
+                    return (
+                      <button key={cat} onClick={() => setCatAtiva(cat)} style={{
+                        padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: on ? 700 : 500,
+                        cursor: "pointer", border: `1px solid ${on ? C.heat : C.line}`,
+                        background: on ? C.heatDim : "transparent",
+                        color: on ? C.heat : C.mute,
+                      }}>
+                        {cat === "todos" ? "Todos" : cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {produtosFiltrados.length === 0 && (
+              <div style={{ textAlign: "center", color: C.mute, padding: "40px 0", fontSize: 14 }}>
+                Nenhum produto encontrado para "<strong>{busca}</strong>".
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 40 }}>
-              {produtos.map(p => (
+              {produtosFiltrados.map(p => (
                 <div key={p.id} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, overflow: "hidden" }}>
                   {/* imagem quadrada feed */}
                   {p.imagem ? (
