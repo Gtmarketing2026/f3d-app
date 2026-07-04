@@ -22,6 +22,26 @@ const label = { display: "block", fontSize: 12, letterSpacing: 0.3, color: C.mut
 const panel = { background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 22 };
 const heading = { fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: C.heat, margin: "0 0 18px", fontWeight: 700 };
 
+// ── Canais de venda com taxas ──────────────────────────────────
+export const CANAIS_VENDA = [
+  { id: "vitrine",       nome: "Venda Direta / Vitrine", taxa: 0     },
+  { id: "instagram",    nome: "Instagram / WhatsApp",   taxa: 0     },
+  { id: "elo7",          nome: "Elo7",                  taxa: 0.12  },
+  { id: "shopee",        nome: "Shopee",                taxa: 0.13  },
+  { id: "mercadolivre", nome: "Mercado Livre",          taxa: 0.145 },
+  { id: "americanas",   nome: "Americanas / B2W",       taxa: 0.16  },
+  { id: "magalu",       nome: "Magalu",                 taxa: 0.16  },
+];
+
+// helper: lucro e margem líquidos após taxa do canal
+const calcCanal = (preco, custo, taxa) => {
+  if (!preco) return null;
+  const liquido = preco * (1 - taxa);
+  const lucro = liquido - custo;
+  const margem = liquido > 0 ? (lucro / liquido) * 100 : 0;
+  return { liquido, lucro, margem };
+};
+
 // ── Categorias e subcategorias ─────────────────────────────────
 export const CATS = {
   "Chaveiros": ["Romântico", "Copa do Mundo", "Beleza & Estética", "Profissões", "Nomes & Letras", "Anime & Games", "Religiosos", "Datas Comemorativas", "Humor", "Infantil", "Personalizado"],
@@ -211,7 +231,12 @@ export default function Catalogo() {
     try { await window.storage.set("orcamentos", JSON.stringify(lista)); } catch (e) {}
   };
 
-  const canais = useMemo(() => ["todos", ...Array.from(new Set(produtos.map((p) => p.canal).filter(Boolean)))], [produtos]);
+  const canais = useMemo(() => {
+    // canais padrão (CANAIS_VENDA) + quaisquer canais customizados já cadastrados
+    const nomesPadrao = CANAIS_VENDA.map(c => c.nome);
+    const customizados = Array.from(new Set(produtos.map(p => p.canal).filter(Boolean))).filter(n => !nomesPadrao.includes(n));
+    return ["todos", ...nomesPadrao, ...customizados];
+  }, [produtos]);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -258,7 +283,7 @@ export default function Catalogo() {
 
   // ── criar / editar via modal ──────────────────────────────────
   const novoProduto = () => setModal({
-    id: null, nome: "", canal: "Venda direta", categoria: "", subcategoria: "", descricao: "", imagem: "",
+    id: null, nome: "", canal: CANAIS_VENDA[0].nome, categoria: "", subcategoria: "", descricao: "", imagem: "",
     custo: "", precoVarejo: "", faixas: [],
   });
   const editar = (p) => setModal({
@@ -522,72 +547,95 @@ export default function Catalogo() {
                   {produtos.length === 0 ? "Catálogo vazio. Importe um CSV ou precifique produtos na calculadora." : "Nenhum produto com esses filtros."}
                 </p>
               ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 720 }}>
-                    <thead>
-                      <tr style={{ textAlign: "left", color: C.mute, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        <th style={{ padding: "0 8px 10px 0" }}>Produto</th>
-                        <th style={{ padding: "0 8px 10px" }}>Canal</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Custo</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Varejo</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Atacado</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Lucro</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Varejo</th>
-                        <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Atacado</th>
-                        <th className="noprint" style={{ padding: "0 0 10px", width: 80 }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtrados.map((p) => {
-                        const varejo = p.precoVarejo ?? p.preco ?? 0;
-                        const margemVarejo = varejo > 0 ? ((varejo - p.custo) / varejo) * 100 : 0;
-                        const fsOrdenadas = faixasOrdenadas(p);
-                        const precoAtacado = fsOrdenadas.length > 0 ? fsOrdenadas[0].preco : 0;
-                        const margemAtacado = precoAtacado > 0 ? ((precoAtacado - p.custo) / precoAtacado) * 100 : null;
-                        return (
-                          <tr key={p.id} style={{ borderTop: `1px solid ${C.line}` }}>
-                            <td style={{ padding: "11px 8px 11px 0", fontWeight: 600 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                {p.imagem ? (
-                                  <img src={p.imagem} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
-                                ) : (
-                                  <div style={{ width: 34, height: 34, borderRadius: 6, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", color: C.line, flexShrink: 0 }}>◳</div>
-                                )}
-                                <div>
-                                  {p.nome}
-                                  {p.descricao && <div style={{ fontSize: 11.5, color: C.mute, fontWeight: 400 }}>{p.descricao}</div>}
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ padding: "11px 8px", color: C.mute }}>{p.canal}</td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", color: C.mute, fontVariantNumeric: "tabular-nums" }}>{brl(p.custo)}</td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", color: C.heat, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{brl(varejo)}</td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                              {temAtacado(p)
-                                ? (() => {
-                                    const fs = faixasOrdenadas(p);
-                                    const menor = fs[fs.length - 1].preco;
-                                    return <span style={{ color: C.cyan }}>{brl(menor)} <span style={{ color: C.mute, fontSize: 11 }}>{fs.length} faixa{fs.length > 1 ? "s" : ""}</span></span>;
-                                  })()
-                                : <span style={{ color: C.line }}>—</span>}
-                            </td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", color: C.cyan, fontVariantNumeric: "tabular-nums" }}>{brl(varejo - p.custo)}</td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", color: margemVarejo >= 40 ? C.green : margemVarejo >= 20 ? C.amber : C.red, fontVariantNumeric: "tabular-nums" }}>{margemVarejo.toFixed(0)}%</td>
-                            <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                              {margemAtacado !== null
-                                ? <span style={{ color: margemAtacado >= 40 ? C.green : margemAtacado >= 20 ? C.amber : C.red }}>{margemAtacado.toFixed(0)}%</span>
-                                : <span style={{ color: C.line }}>—</span>}
-                            </td>
-                            <td className="noprint" style={{ padding: "11px 0", textAlign: "right" }}>
-                              <button onClick={() => editar(p)} style={{ ...btnMini(C.mute), marginRight: 4 }}>editar</button>
-                              <button onClick={() => excluir(p.id)} style={btnMini(C.mute)}>×</button>
-                            </td>
+                {(() => {
+                  // canal selecionado no filtro → pega taxa
+                  const canalInfo = fCanal !== "todos"
+                    ? CANAIS_VENDA.find(c => c.nome === fCanal)
+                    : null;
+                  const taxa = canalInfo?.taxa ?? 0;
+                  const labelCanal = canalInfo ? ` · ${canalInfo.nome} (taxa ${canalInfo.taxa > 0 ? `${(canalInfo.taxa*100).toFixed(1)}%` : "0%"})` : "";
+                  return (
+                    <div style={{ overflowX: "auto" }}>
+                      {canalInfo && (
+                        <div style={{ marginBottom: 10, padding: "6px 12px", background: C.heatDim, borderRadius: 8, fontSize: 12.5, color: C.heat, fontWeight: 600 }}>
+                          Margens calculadas após taxa do canal: <strong>{canalInfo.nome}</strong> {canalInfo.taxa > 0 ? `(−${(canalInfo.taxa*100).toFixed(1)}% sobre o preço)` : "(sem taxa)"}
+                        </div>
+                      )}
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 720 }}>
+                        <thead>
+                          <tr style={{ textAlign: "left", color: C.mute, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                            <th style={{ padding: "0 8px 10px 0" }}>Produto</th>
+                            <th style={{ padding: "0 8px 10px" }}>Canal</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Custo</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Varejo</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Atacado</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Lucro Varejo{labelCanal}</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Varejo</th>
+                            <th style={{ padding: "0 8px 10px", textAlign: "right" }}>Margem Atacado</th>
+                            <th className="noprint" style={{ padding: "0 0 10px", width: 80 }} />
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {filtrados.map((p) => {
+                            const varejo = p.precoVarejo ?? p.preco ?? 0;
+                            const fsOrdenadas = faixasOrdenadas(p);
+                            const precoAtacado = fsOrdenadas.length > 0 ? fsOrdenadas[0].preco : 0;
+                            // cálculo com taxa do canal selecionado
+                            const cv = calcCanal(varejo, p.custo, taxa);
+                            const ca = precoAtacado > 0 ? calcCanal(precoAtacado, p.custo, taxa) : null;
+                            const corV = cv ? (cv.margem >= 40 ? C.green : cv.margem >= 20 ? C.amber : C.red) : C.mute;
+                            const corA = ca ? (ca.margem >= 40 ? C.green : ca.margem >= 20 ? C.amber : C.red) : null;
+                            return (
+                              <tr key={p.id} style={{ borderTop: `1px solid ${C.line}` }}>
+                                <td style={{ padding: "11px 8px 11px 0", fontWeight: 600 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    {p.imagem ? (
+                                      <img src={p.imagem} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                                    ) : (
+                                      <div style={{ width: 34, height: 34, borderRadius: 6, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", color: C.line, flexShrink: 0 }}>◳</div>
+                                    )}
+                                    <div>
+                                      {p.nome}
+                                      {p.descricao && <div style={{ fontSize: 11.5, color: C.mute, fontWeight: 400 }}>{p.descricao}</div>}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: "11px 8px", color: C.mute, fontSize: 12.5 }}>{p.canal}</td>
+                                <td style={{ padding: "11px 8px", textAlign: "right", color: C.mute, fontVariantNumeric: "tabular-nums" }}>{brl(p.custo)}</td>
+                                <td style={{ padding: "11px 8px", textAlign: "right", color: C.heat, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{brl(varejo)}</td>
+                                <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                                  {temAtacado(p)
+                                    ? (() => {
+                                        const fs = faixasOrdenadas(p);
+                                        const menor = fs[fs.length - 1].preco;
+                                        return <span style={{ color: C.cyan }}>{brl(menor)} <span style={{ color: C.mute, fontSize: 11 }}>{fs.length} faixa{fs.length > 1 ? "s" : ""}</span></span>;
+                                      })()
+                                    : <span style={{ color: C.line }}>—</span>}
+                                </td>
+                                <td style={{ padding: "11px 8px", textAlign: "right", color: corV, fontVariantNumeric: "tabular-nums" }}>
+                                  {cv ? brl(cv.lucro) : "—"}
+                                  {taxa > 0 && cv && <div style={{ fontSize: 10.5, color: C.mute }}>líq. {brl(cv.liquido)}</div>}
+                                </td>
+                                <td style={{ padding: "11px 8px", textAlign: "right", color: corV, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                  {cv ? `${cv.margem.toFixed(0)}%` : "—"}
+                                </td>
+                                <td style={{ padding: "11px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                                  {ca
+                                    ? <span style={{ color: corA, fontWeight: 700 }}>{ca.margem.toFixed(0)}%</span>
+                                    : <span style={{ color: C.line }}>—</span>}
+                                </td>
+                                <td className="noprint" style={{ padding: "11px 0", textAlign: "right" }}>
+                                  <button onClick={() => editar(p)} style={{ ...btnMini(C.mute), marginRight: 4 }}>editar</button>
+                                  <button onClick={() => excluir(p.id)} style={btnMini(C.mute)}>×</button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
               )}
             </div>
           </>
@@ -800,7 +848,12 @@ export default function Catalogo() {
 
             <label style={{ display: "block", marginBottom: 14 }}>
               <span style={label}>Canal de venda</span>
-              <input value={modal.canal} onChange={(e) => setModal({ ...modal, canal: e.target.value })} style={field} />
+              <select value={CANAIS_VENDA.find(c => c.nome === modal.canal)?.id || "vitrine"} onChange={(e) => {
+                const c = CANAIS_VENDA.find(x => x.id === e.target.value);
+                setModal({ ...modal, canal: c ? c.nome : e.target.value });
+              }} style={field}>
+                {CANAIS_VENDA.map(c => <option key={c.id} value={c.id}>{c.nome}{c.taxa > 0 ? ` (taxa ${(c.taxa * 100).toFixed(1)}%)` : ""}</option>)}
+              </select>
             </label>
 
             <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
@@ -872,6 +925,55 @@ export default function Catalogo() {
                 </>
               )}
             </div>
+
+            {/* preview de margens por canal */}
+            {(parseFloat(modal.precoVarejo) > 0 || (modal.faixas || []).some(f => parseFloat(f.preco) > 0)) && (() => {
+              const custo = parseFloat(modal.custo) || 0;
+              const varejo = parseFloat(modal.precoVarejo) || 0;
+              const faixasValidas = (modal.faixas || []).filter(f => parseFloat(f.preco) > 0 && parseInt(f.qtd) > 0).sort((a, b) => a.qtd - b.qtd);
+              const atacado = faixasValidas.length > 0 ? parseFloat(faixasValidas[0].preco) : null;
+              return (
+                <div style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginBottom: 18 }}>
+                  <span style={{ ...label, margin: "0 0 10px", fontSize: 11, letterSpacing: 1 }}>CÁLCULO POR CANAL DE VENDA</span>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                      <thead>
+                        <tr style={{ color: C.mute, fontSize: 11 }}>
+                          <th style={{ textAlign: "left", paddingBottom: 6, fontWeight: 500 }}>Canal</th>
+                          <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Taxa</th>
+                          {varejo > 0 && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Lucro Varejo</th>}
+                          {varejo > 0 && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Margem</th>}
+                          {atacado && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Lucro Atacado</th>}
+                          {atacado && <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: 500 }}>Margem</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {CANAIS_VENDA.map(c => {
+                          const cv = varejo > 0 ? calcCanal(varejo, custo, c.taxa) : null;
+                          const ca = atacado ? calcCanal(atacado, custo, c.taxa) : null;
+                          const corV = cv ? (cv.margem >= 40 ? C.green : cv.margem >= 20 ? C.amber : C.red) : C.mute;
+                          const corA = ca ? (ca.margem >= 40 ? C.green : ca.margem >= 20 ? C.amber : C.red) : C.mute;
+                          const selected = CANAIS_VENDA.find(x => x.nome === modal.canal)?.id === c.id;
+                          return (
+                            <tr key={c.id} style={{ borderTop: `1px solid ${C.line}`, background: selected ? C.heatDim : "transparent" }}>
+                              <td style={{ padding: "7px 0", color: selected ? C.heat : C.ink, fontWeight: selected ? 700 : 400 }}>{c.nome}</td>
+                              <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: C.mute }}>{c.taxa > 0 ? `${(c.taxa * 100).toFixed(1)}%` : "—"}</td>
+                              {cv && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corV, fontVariantNumeric: "tabular-nums" }}>{brl(cv.lucro)}</td>}
+                              {cv && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corV, fontWeight: 700 }}>{cv.margem.toFixed(0)}%</td>}
+                              {ca && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corA, fontVariantNumeric: "tabular-nums" }}>{brl(ca.lucro)}</td>}
+                              {ca && <td style={{ padding: "7px 0 7px 8px", textAlign: "right", color: corA, fontWeight: 700 }}>{ca.margem.toFixed(0)}%</td>}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p style={{ fontSize: 11, color: C.mute, margin: "8px 0 0", lineHeight: 1.5 }}>
+                    Margem calculada sobre o valor líquido após a taxa do canal. Verde ≥ 40% · Amarelo ≥ 20% · Vermelho &lt; 20%.
+                  </p>
+                </div>
+              );
+            })()}
 
             <button onClick={salvarModal} disabled={!modal.nome.trim()}
               style={{ width: "100%", padding: 13, borderRadius: 11, border: "none", fontSize: 14.5, fontWeight: 700,
