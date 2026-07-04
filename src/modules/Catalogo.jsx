@@ -22,9 +22,23 @@ const label = { display: "block", fontSize: 12, letterSpacing: 0.3, color: C.mut
 const panel = { background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 22 };
 const heading = { fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: C.heat, margin: "0 0 18px", fontWeight: 700 };
 
+// ── Categorias e subcategorias ─────────────────────────────────
+export const CATS = {
+  "Chaveiros": ["Romântico", "Copa do Mundo", "Beleza & Estética", "Profissões", "Nomes & Letras", "Anime & Games", "Religiosos", "Datas Comemorativas", "Humor", "Infantil", "Personalizado"],
+  "Quadros & Placas": ["Decorativo", "Família", "Frases & Motivacional", "Religioso", "Empresarial", "Mapa & Localização", "Personalizado"],
+  "Utensílios": ["Cozinha", "Banheiro", "Escritório", "Jardim & Plantas", "Sala de Estar"],
+  "Decoração": ["Vasos", "Luminárias", "Esculturas", "Miniaturas", "Temático (Natal, Páscoa…)", "Personalizado"],
+  "Organização": ["Suporte de Celular", "Organizador de Gaveta", "Porta-Temperos", "Suporte de Cabos", "Caixas & Porta-Objetos"],
+  "Brinquedos & Games": ["Miniaturas de RPG", "Peças de Tabuleiro", "Fidget & Anti-Estresse", "Educativos", "Infantil"],
+  "Moda & Acessórios": ["Brincos", "Pulseiras", "Broches & Pins", "Tiaras & Presilhas", "Bolsas & Carteiras"],
+  "Pets": ["Tags de Identificação", "Coleiras & Acessórios", "Comedouros & Bebedouros", "Brinquedos para Pet"],
+  "Peças Técnicas": ["Suporte & Fixação", "Adaptador", "Reposição & Conserto", "Ferramentas"],
+  "Personalizado": ["Sob Encomenda", "Corporativo", "Brinde", "Lembrança"],
+};
+
 // CSV helpers ---------------------------------------------------
 function toCSV(rows) {
-  const head = ["nome", "canal", "descricao", "custo", "precoVarejo", "faixas", "imagem"];
+  const head = ["nome", "canal", "categoria", "subcategoria", "descricao", "custo", "precoVarejo", "faixas", "imagem"];
   const esc = (v) => {
     const s = String(v ?? "");
     return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -244,13 +258,14 @@ export default function Catalogo() {
 
   // ── criar / editar via modal ──────────────────────────────────
   const novoProduto = () => setModal({
-    id: null, nome: "", canal: "Venda direta", descricao: "", imagem: "",
+    id: null, nome: "", canal: "Venda direta", categoria: "", subcategoria: "", descricao: "", imagem: "",
     custo: "", precoVarejo: "", faixas: [],
   });
   const editar = (p) => setModal({
     ...p,
     custo: p.custo ?? "", precoVarejo: p.precoVarejo ?? p.preco ?? "",
     faixas: (p.faixas || []).map((f) => ({ ...f })),
+    categoria: p.categoria || "", subcategoria: p.subcategoria || "",
   });
   const addFaixa = () => setModal((m) => ({
     ...m, faixas: [...(m.faixas || []), { id: Date.now(), qtd: "", preco: "" }],
@@ -272,6 +287,8 @@ export default function Catalogo() {
       id: modal.id || Date.now(),
       nome: modal.nome.trim(),
       canal: modal.canal.trim() || "Venda direta",
+      categoria: modal.categoria || "",
+      subcategoria: modal.subcategoria || "",
       descricao: modal.descricao.trim(),
       imagem: modal.imagem.trim(),
       custo, precoVarejo, faixas,
@@ -782,9 +799,26 @@ export default function Catalogo() {
             </div>
 
             <label style={{ display: "block", marginBottom: 14 }}>
-              <span style={label}>Canal</span>
+              <span style={label}>Canal de venda</span>
               <input value={modal.canal} onChange={(e) => setModal({ ...modal, canal: e.target.value })} style={field} />
             </label>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <label style={{ display: "block", flex: 1 }}>
+                <span style={label}>Categoria</span>
+                <select value={modal.categoria} onChange={(e) => setModal({ ...modal, categoria: e.target.value, subcategoria: "" })} style={field}>
+                  <option value="">— Selecione —</option>
+                  {Object.keys(CATS).map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label style={{ display: "block", flex: 1 }}>
+                <span style={label}>Subcategoria</span>
+                <select value={modal.subcategoria} onChange={(e) => setModal({ ...modal, subcategoria: e.target.value })} style={field} disabled={!modal.categoria}>
+                  <option value="">— Selecione —</option>
+                  {(CATS[modal.categoria] || []).map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+            </div>
 
             <div style={{ display: "flex", gap: 10 }}>
               <label style={{ display: "block", marginBottom: 14, flex: 1 }}>

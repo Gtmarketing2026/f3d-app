@@ -21,6 +21,7 @@ export default function Vitrine({ userId }) {
   const [imgAmpliada, setImgAmpliada] = useState(null);
   const [busca, setBusca] = useState("");
   const [catAtiva, setCatAtiva] = useState("todos");
+  const [subcatAtiva, setSubcatAtiva] = useState("todos");
 
   useEffect(() => {
     async function fetchCatalogo() {
@@ -44,16 +45,20 @@ export default function Vitrine({ userId }) {
     return () => window.removeEventListener("keydown", fn);
   }, []);
 
-  const categorias = ["todos", ...Array.from(new Set(produtos.map(p => p.canal).filter(Boolean)))];
+  const categorias = ["todos", ...Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)))];
+  const subcategorias = catAtiva === "todos" ? [] :
+    ["todos", ...Array.from(new Set(produtos.filter(p => p.categoria === catAtiva).map(p => p.subcategoria).filter(Boolean)))];
 
   const produtosFiltrados = produtos.filter(p => {
     const termoBusca = busca.toLowerCase();
-    const bateCategoria = catAtiva === "todos" || p.canal === catAtiva;
+    const bateCategoria = catAtiva === "todos" || p.categoria === catAtiva;
+    const bateSubcat = subcatAtiva === "todos" || !subcatAtiva || p.subcategoria === subcatAtiva;
     const bateBusca = !termoBusca ||
       p.nome?.toLowerCase().includes(termoBusca) ||
       p.descricao?.toLowerCase().includes(termoBusca) ||
-      p.canal?.toLowerCase().includes(termoBusca);
-    return bateCategoria && bateBusca;
+      p.categoria?.toLowerCase().includes(termoBusca) ||
+      p.subcategoria?.toLowerCase().includes(termoBusca);
+    return bateCategoria && bateSubcat && bateBusca;
   });
 
   const setQtd = (id, v) => setCarrinho(c => ({ ...c, [id]: Math.max(0, parseInt(v) || 0) }));
@@ -167,13 +172,31 @@ export default function Vitrine({ userId }) {
                   {categorias.map(cat => {
                     const on = catAtiva === cat;
                     return (
-                      <button key={cat} onClick={() => setCatAtiva(cat)} style={{
+                      <button key={cat} onClick={() => { setCatAtiva(cat); setSubcatAtiva("todos"); }} style={{
                         padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: on ? 700 : 500,
                         cursor: "pointer", border: `1px solid ${on ? C.heat : C.line}`,
                         background: on ? C.heatDim : "transparent",
                         color: on ? C.heat : C.mute,
                       }}>
                         {cat === "todos" ? "Todos" : cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {subcategorias.length > 2 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 4 }}>
+                  {subcategorias.map(sub => {
+                    const on = subcatAtiva === sub;
+                    return (
+                      <button key={sub} onClick={() => setSubcatAtiva(sub)} style={{
+                        padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: on ? 700 : 400,
+                        cursor: "pointer", border: `1px solid ${on ? C.cyan : C.line}`,
+                        background: on ? "#37d6c522" : "transparent",
+                        color: on ? C.cyan : C.mute,
+                      }}>
+                        {sub === "todos" ? "Todas" : sub}
                       </button>
                     );
                   })}
@@ -222,6 +245,12 @@ export default function Vitrine({ userId }) {
                   )}
 
                   <div style={{ padding: 14 }}>
+                    {(p.categoria || p.subcategoria) && (
+                      <div style={{ fontSize: 11, color: C.cyan, marginBottom: 5, display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        {p.categoria && <span style={{ background: "#37d6c518", borderRadius: 10, padding: "2px 8px" }}>{p.categoria}</span>}
+                        {p.subcategoria && <span style={{ background: "#37d6c510", borderRadius: 10, padding: "2px 8px", opacity: 0.8 }}>{p.subcategoria}</span>}
+                      </div>
+                    )}
                     <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 4 }}>{p.nome}</div>
                     {p.descricao && <div style={{ fontSize: 12, color: C.mute, marginBottom: 8, lineHeight: 1.5 }}>{p.descricao}</div>}
                     <div style={{ fontSize: 17, fontWeight: 800, color: C.heat, marginBottom: 6 }}>{brl(p.precoVarejo)}</div>
