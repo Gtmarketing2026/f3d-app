@@ -329,27 +329,45 @@ export default function Calculadora() {
 
   const carregarProduto = (p) => {
     const r = p.receita;
-    if (!r) return; // produtos antigos sem receita salva
     setNomeProduto(p.nome);
-    setPesoG(r.pesoG);
-    setTempoHoras(r.tempoHoras ?? Math.floor(r.tempoH ?? 0));
-    setTempoMinutos(r.tempoMinutos ?? Math.round(((r.tempoH ?? 0) % 1) * 60));
-    setPrecoKg(r.precoKg);
-    setPosProcHoras(r.posProcHoras ?? Math.floor(r.posProcH ?? 0));
-    setPosProcMinutos(r.posProcMinutos ?? Math.round(((r.posProcH ?? 0) % 1) * 60));
-    setQtd(r.qtd);
-    setExtras(r.extras || []); setMktMin(r.mktMin); setMktMax(r.mktMax);
-    setPotenciaW(r.potenciaW); setTarifaKwh(r.tarifaKwh);
-    setCustoMaquina(r.custoMaquina); setVidaUtilH(r.vidaUtilH);
-    setManutHora(r.manutHora); setMaoObraHora(r.maoObraHora);
-    setTaxaFalha(r.taxaFalha); setMargem(r.margem);
-    setModoMkt(r.modoMkt); setPresetId(r.presetId); setComissao(r.comissao);
-    setTaxaFixa(r.taxaFixa); setImposto(r.imposto); setFreteEmbutido(r.freteEmbutido);
-    setUsarImposto(r.usarImposto); setImpostoNF(r.impostoNF);
-    setPrecoVarejo(p.precoVarejo ? String(p.precoVarejo) : "");
-    setPrecoAtacado(p.precoAtacado ? String(p.precoAtacado) : "");
-    setQtdAtacado(p.qtdAtacado || 10);
     setEditandoId(p.id);
+    setPrecoVarejo(p.precoVarejo ? String(p.precoVarejo) : "");
+    // faixas de atacado → pega a primeira (menor qtd)
+    const primeiraFaixa = (p.faixas || []).slice().sort((a, b) => a.qtd - b.qtd)[0];
+    setPrecoAtacado(primeiraFaixa ? String(primeiraFaixa.preco) : (p.precoAtacado ? String(p.precoAtacado) : ""));
+    setQtdAtacado(primeiraFaixa ? primeiraFaixa.qtd : (p.qtdAtacado || 10));
+
+    if (r) {
+      // produto precificado pela calculadora — restaura todos os parâmetros
+      setPesoG(r.pesoG);
+      setTempoHoras(r.tempoHoras ?? Math.floor(r.tempoH ?? 0));
+      setTempoMinutos(r.tempoMinutos ?? Math.round(((r.tempoH ?? 0) % 1) * 60));
+      setPrecoKg(r.precoKg);
+      setPosProcHoras(r.posProcHoras ?? Math.floor(r.posProcH ?? 0));
+      setPosProcMinutos(r.posProcMinutos ?? Math.round(((r.posProcH ?? 0) % 1) * 60));
+      setQtd(r.qtd);
+      setExtras(r.extras?.length ? r.extras : EXTRAS_PADRAO.map((e) => ({ ...e, id: Date.now() + e.id })));
+      setMktMin(r.mktMin); setMktMax(r.mktMax);
+      setPotenciaW(r.potenciaW); setTarifaKwh(r.tarifaKwh);
+      setCustoMaquina(r.custoMaquina); setVidaUtilH(r.vidaUtilH);
+      setManutHora(r.manutHora); setMaoObraHora(r.maoObraHora);
+      setTaxaFalha(r.taxaFalha); setMargem(r.margem);
+      setModoMkt(r.modoMkt); setPresetId(r.presetId); setComissao(r.comissao);
+      setTaxaFixa(r.taxaFixa); setImposto(r.imposto); setFreteEmbutido(r.freteEmbutido);
+      setUsarImposto(r.usarImposto); setImpostoNF(r.impostoNF);
+    } else {
+      // produto importado/criado no catálogo — preenche o que existe e reseta o resto
+      setPesoG(p.pesoG || 45);
+      setTempoHoras(p.tempoH ? Math.floor(p.tempoH) : 4);
+      setTempoMinutos(p.tempoH ? Math.round((p.tempoH % 1) * 60) : 30);
+      setPrecoKg(120);
+      setPosProcHoras(0); setPosProcMinutos(30);
+      setQtd(1);
+      setExtras(EXTRAS_PADRAO.map((e) => ({ ...e, id: Date.now() + e.id })));
+      setModoMkt(false); setPresetId("custom");
+      setUsarImposto(false); setImpostoNF(0);
+      setFreteEmbutido(0);
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -963,7 +981,7 @@ export default function Calculadora() {
                     border: `1px solid ${p.id === editandoId ? C.heat : C.line}`,
                     borderRadius: 9,
                     padding: "11px 12px",
-                    cursor: p.receita ? "pointer" : "default",
+                    cursor: "pointer",
                   }}
                 >
                   <span style={{ fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
