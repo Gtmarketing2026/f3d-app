@@ -81,12 +81,22 @@ export default function Vitrine({ userId }) {
 
   const total = itensCarrinho.reduce((s, i) => s + i.subtotal, 0);
 
-  const enviarPedido = () => {
+  const enviarPedido = async () => {
     if (!nomeCliente.trim() || itensCarrinho.length === 0) return;
     const linhas = itensCarrinho.map(i => `• ${i.nome} x${i.qtd} = ${brl(i.subtotal)}`).join("\n");
     const obs = obsCliente.trim() ? `\n\nObservação: ${obsCliente.trim()}` : "";
     const msg = `Olá! Sou ${nomeCliente} e gostaria de fazer um pedido:\n\n${linhas}\n\nTotal: ${brl(total)}${obs}`;
     const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
+    // salva pedido no Supabase para aparecer em Orçamentos
+    try {
+      await supabase.from("pedidos_vitrine").insert({
+        user_id: userId,
+        cliente: nomeCliente.trim(),
+        obs: obsCliente.trim() || null,
+        itens: itensCarrinho.map(i => ({ nome: i.nome, qtd: i.qtd, preco: i.preco, subtotal: i.subtotal })),
+        total,
+      });
+    } catch (e) {}
     window.open(url, "_blank");
     setPedidoEnviado(true);
   };

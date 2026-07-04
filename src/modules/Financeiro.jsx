@@ -97,6 +97,24 @@ export default function Financeiro() {
   const [verLancamentos, setVerLancamentos] = useState(null); // null | "vendas" | "despesas" | "todos"
   const [mes, setMes] = useState(mesAtual());
 
+  // editar venda
+  const [editVenda, setEditVenda]   = useState(null);
+  const [evProduto, setEvProduto]   = useState("");
+  const [evQtd,     setEvQtd]       = useState(1);
+  const [evValor,   setEvValor]     = useState("");
+  const [evData,    setEvData]       = useState("");
+  const [evCliente, setEvCliente]   = useState("");
+  const [evPagamento, setEvPagamento] = useState("pix");
+  const [evParcelas,  setEvParcelas]  = useState(1);
+  const [evStatus,    setEvStatus]    = useState("pago");
+
+  // editar despesa
+  const [editDespesa,  setEditDespesa]  = useState(null);
+  const [edDesc,       setEdDesc]       = useState("");
+  const [edCat,        setEdCat]        = useState("filamento");
+  const [edValor,      setEdValor]      = useState("");
+  const [edData,       setEdData]       = useState("");
+
   // formulário de venda
   const [vProduto, setVProduto] = useState("");
   const [vQtd, setVQtd] = useState(1);
@@ -189,6 +207,35 @@ export default function Financeiro() {
   const delVenda = (id) => persistVendas(vendas.filter((v) => v.id !== id));
   const delDespesa = (id) => persistDespesas(despesas.filter((d) => d.id !== id));
 
+  const abrirEditVenda = (v) => {
+    setEditVenda(v);
+    setEvProduto(v.produto); setEvQtd(v.qtd); setEvValor(String(v.valor / v.qtd)); setEvData(v.data);
+    setEvCliente(v.cliente || ""); setEvPagamento(v.pagamento || "pix");
+    setEvParcelas(v.parcelas || 1); setEvStatus(v.status || "pago");
+  };
+  const salvarEditVenda = () => {
+    const valor = parseFloat(evValor) || 0;
+    const qtd = parseInt(evQtd) || 1;
+    const prod = catalogo.find((x) => x.nome === evProduto);
+    const custoUnit = prod ? prod.custo : editVenda.custo / editVenda.qtd;
+    persistVendas(vendas.map((v) => v.id !== editVenda.id ? v : {
+      ...v, produto: evProduto, qtd, valor: valor * qtd, custo: custoUnit * qtd,
+      lucro: (valor - custoUnit) * qtd, data: evData, cliente: evCliente,
+      pagamento: evPagamento, parcelas: evPagamento === "cartao" ? parseInt(evParcelas) : 1, status: evStatus,
+    }));
+    setEditVenda(null);
+  };
+
+  const abrirEditDespesa = (d) => {
+    setEditDespesa(d);
+    setEdDesc(d.desc); setEdCat(d.categoria); setEdValor(String(d.valor)); setEdData(d.data);
+  };
+  const salvarEditDespesa = () => {
+    const valor = parseFloat(edValor) || 0;
+    persistDespesas(despesas.map((d) => d.id !== editDespesa.id ? d : { ...d, desc: edDesc.trim(), categoria: edCat, valor, data: edData }));
+    setEditDespesa(null);
+  };
+
   // ── cálculos do período ───────────────────────────────────────
   const dados = useMemo(() => {
     const vMes = vendas.filter((v) => v.data.startsWith(mes));
@@ -278,6 +325,91 @@ export default function Financeiro() {
         padding: "32px 20px 60px",
       }}
     >
+      {/* ── MODAL EDITAR VENDA ──────────────────────────────────── */}
+      {editVenda && (
+        <div onClick={() => setEditVenda(null)} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, padding: 26, width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Editar venda</span>
+              <button onClick={() => setEditVenda(null)} style={{ background: "none", border: "none", color: C.mute, fontSize: 22, cursor: "pointer" }}>×</button>
+            </div>
+            <label style={{ display: "block", marginBottom: 12 }}>
+              <span style={label}>Produto</span>
+              {catalogo.length > 0 ? (
+                <select value={evProduto} onChange={(e) => setEvProduto(e.target.value)} style={field}>
+                  {catalogo.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
+                  {!catalogo.find((p) => p.nome === evProduto) && <option value={evProduto}>{evProduto}</option>}
+                </select>
+              ) : (
+                <input value={evProduto} onChange={(e) => setEvProduto(e.target.value)} style={field} />
+              )}
+            </label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <label style={{ flex: 1 }}><span style={label}>Qtd</span><input type="number" value={evQtd} onChange={(e) => setEvQtd(e.target.value)} style={field} /></label>
+              <label style={{ flex: 1.4 }}><span style={label}>Valor unitário</span><input type="number" step="0.01" value={evValor} onChange={(e) => setEvValor(e.target.value)} style={field} /></label>
+            </div>
+            <label style={{ display: "block", marginBottom: 12 }}>
+              <span style={label}>Cliente</span>
+              <input value={evCliente} onChange={(e) => setEvCliente(e.target.value)} style={field} placeholder="(opcional)" />
+            </label>
+            <div style={{ marginBottom: 12 }}>
+              <span style={label}>Pagamento</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[["pix","PIX"],["dinheiro","Dinheiro"],["cartao","Cartão"]].map(([id, txt]) => {
+                  const on = evPagamento === id;
+                  return <button key={id} onClick={() => setEvPagamento(id)} style={{ flex: 1, padding: "9px 4px", borderRadius: 9, border: `1px solid ${on ? C.cyan : C.line}`, background: on ? "#37d6c522" : "transparent", color: on ? C.cyan : C.mute, fontWeight: on ? 700 : 500, fontSize: 13, cursor: "pointer" }}>{txt}</button>;
+                })}
+              </div>
+            </div>
+            {evPagamento === "cartao" && (
+              <label style={{ display: "block", marginBottom: 12 }}>
+                <span style={label}>Parcelas</span>
+                <select value={evParcelas} onChange={(e) => setEvParcelas(e.target.value)} style={field}>
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}x</option>)}
+                </select>
+              </label>
+            )}
+            <div style={{ marginBottom: 12 }}>
+              <span style={label}>Status</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[["pago",C.green,"Pago"],["parcial",C.amber,"Parcial"],["pendente",C.red,"Pendente"]].map(([id,cor,txt]) => {
+                  const on = evStatus === id;
+                  return <button key={id} onClick={() => setEvStatus(id)} style={{ flex: 1, padding: "9px 4px", borderRadius: 9, border: `1px solid ${on ? cor : C.line}`, background: on ? `${cor}22` : "transparent", color: on ? cor : C.mute, fontWeight: on ? 700 : 500, fontSize: 12, cursor: "pointer" }}>{txt}</button>;
+                })}
+              </div>
+            </div>
+            <label style={{ display: "block", marginBottom: 16 }}>
+              <span style={label}>Data</span>
+              <input type="date" value={evData} onChange={(e) => setEvData(e.target.value)} style={field} />
+            </label>
+            <button onClick={salvarEditVenda} style={{ width: "100%", padding: 13, borderRadius: 11, border: "none", background: C.green, color: "#0c1410", fontWeight: 700, fontSize: 14.5, cursor: "pointer" }}>Salvar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL EDITAR DESPESA ──────────────────────────────────── */}
+      {editDespesa && (
+        <div onClick={() => setEditDespesa(null)} style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, padding: 26, width: "100%", maxWidth: 400 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>Editar despesa</span>
+              <button onClick={() => setEditDespesa(null)} style={{ background: "none", border: "none", color: C.mute, fontSize: 22, cursor: "pointer" }}>×</button>
+            </div>
+            <label style={{ display: "block", marginBottom: 12 }}><span style={label}>Descrição</span><input value={edDesc} onChange={(e) => setEdDesc(e.target.value)} style={field} /></label>
+            <label style={{ display: "block", marginBottom: 12 }}><span style={label}>Categoria</span>
+              <select value={edCat} onChange={(e) => setEdCat(e.target.value)} style={field}>
+                {CATEGORIAS.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+              <label style={{ flex: 1 }}><span style={label}>Valor</span><input type="number" step="0.01" value={edValor} onChange={(e) => setEdValor(e.target.value)} style={field} /></label>
+              <label style={{ flex: 1 }}><span style={label}>Data</span><input type="date" value={edData} onChange={(e) => setEdData(e.target.value)} style={field} /></label>
+            </div>
+            <button onClick={salvarEditDespesa} style={{ width: "100%", padding: 13, borderRadius: 11, border: "none", background: C.heat, color: "#1a0d05", fontWeight: 700, fontSize: 14.5, cursor: "pointer" }}>Salvar</button>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL LANÇAMENTOS ──────────────────────────────────── */}
       {verLancamentos && (() => {
         const filtro = verLancamentos;
@@ -346,6 +478,10 @@ export default function Financeiro() {
                       <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: x.tipo === "venda" ? C.green : C.red, flexShrink: 0 }}>
                         {x.tipo === "venda" ? "+" : "−"}{brl(x.valor)}
                       </span>
+                      <button onClick={() => { x.tipo === "venda" ? abrirEditVenda(x) : abrirEditDespesa(x); setVerLancamentos(null); }}
+                        style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.mute, cursor: "pointer", fontSize: 12, borderRadius: 6, padding: "3px 8px", flexShrink: 0 }} title="Editar">
+                        ✎
+                      </button>
                       <button onClick={() => { x.tipo === "venda" ? delVenda(x.id) : delDespesa(x.id); }}
                         style={{ background: "transparent", border: "none", color: C.mute, cursor: "pointer", fontSize: 18, lineHeight: 1, flexShrink: 0 }} title="Remover">
                         ×
@@ -785,6 +921,10 @@ export default function Financeiro() {
                         <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: x.tipo === "venda" ? C.green : C.red }}>
                           {x.tipo === "venda" ? "+" : "−"}{brl(x.valor)}
                         </span>
+                        <button onClick={() => x.tipo === "venda" ? abrirEditVenda(x) : abrirEditDespesa(x)}
+                          style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.mute, cursor: "pointer", fontSize: 12, borderRadius: 6, padding: "3px 8px" }} title="Editar">
+                          ✎
+                        </button>
                         <button onClick={() => x.tipo === "venda" ? delVenda(x.id) : delDespesa(x.id)}
                           style={{ background: "transparent", border: "none", color: C.mute, cursor: "pointer", fontSize: 16, lineHeight: 1 }} title="Remover">
                           ×
