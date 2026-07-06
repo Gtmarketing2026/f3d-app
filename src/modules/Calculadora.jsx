@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 // v2
 // ── Design tokens ──────────────────────────────────────────────
@@ -135,14 +136,15 @@ export default function Calculadora() {
   const [catalogo, setCatalogo] = useState([]);
   const [salvo, setSalvo] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
     (async () => {
-      try {
-        const r = await window.storage.get("catalogo");
-        if (r && r.value) setCatalogo(JSON.parse(r.value));
-      } catch (e) {
-        /* catálogo vazio na primeira vez */
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const { data } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+        if (data?.produtos) setCatalogo(data.produtos);
       }
     })();
   }, []);
@@ -282,11 +284,7 @@ export default function Calculadora() {
 
   const persistir = async (lista) => {
     setCatalogo(lista);
-    try {
-      await window.storage.set("catalogo", JSON.stringify(lista));
-    } catch (e) {
-      /* falha ao salvar — mantém em memória */
-    }
+    if (userId) await supabase.from("catalogo").upsert({ user_id: userId, produtos: lista });
   };
 
   const salvarNoCatalogo = () => {

@@ -56,59 +56,66 @@ export default function Orcamentos() {
   const [eItens, setEItens] = useState([]);
 
   useEffect(() => {
+    let channel;
     (async () => {
-      try { const c = await window.storage.get("catalogo"); if (c?.value) setCatalogo(JSON.parse(c.value)); } catch (e) {}
-      try { const o = await window.storage.get("orcamentos"); if (o?.value) setOrcamentos(JSON.parse(o.value)); } catch (e) {}
-      try { const v = await window.storage.get("vendas"); if (v?.value) setVendas(JSON.parse(v.value)); } catch (e) {}
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserId(user.id);
-          // carrega pedidos da vitrine
-          const { data: pedidos } = await supabase
-            .from("pedidos_vitrine")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("criado_em", { ascending: false });
-          if (pedidos && pedidos.length > 0) {
-            setOrcamentos((prev) => {
-              const ids = new Set(prev.map((o) => o.vitrineId));
-              const novos = pedidos
-                .filter((p) => !ids.has(p.id))
-                .map((p) => ({
-                  id: `vitrine-${p.id}`,
-                  vitrineId: p.id,
-                  numero: `VIT-${String(p.id).slice(-4).padStart(4, "0")}`,
-                  cliente: p.cliente || "Cliente vitrine",
-                  contato: "",
-                  validade: addDias(7),
-                  obs: p.obs || "",
-                  itens: (p.itens || []).map((i) => ({
-                    nome: i.nome, preco: i.preco || 0, custo: 0, qtd: i.qtd || 1, perso: false,
-                  })),
-                  total: p.total || 0,
-                  status: "novo",
-                  motivo: null,
-                  criadoEm: p.criado_em?.slice(0, 10) || hoje(),
-                  origem: "vitrine",
-                }));
-              const merged = [...novos, ...prev];
-              window.storage.set("orcamentos", JSON.stringify(merged));
-              return merged;
-            });
-          }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+      // catálogo
+      const { data: cat } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+      if (cat?.produtos) setCatalogo(cat.produtos);
+      // orçamentos
+      const { data: orcs } = await supabase.from("orcamentos").select("*").eq("user_id", user.id).order("criado_em", { ascending: false });
+      if (orcs) setOrcamentos(orcs);
+      // pedidos vitrine — merge como orçamentos novos
+      const { data: pedidos } = await supabase
+        .from("pedidos_vitrine")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("criado_em", { ascending: false });
+      if (pedidos && pedidos.length > 0) {
+        const idsExistentes = new Set((orcs || []).map((o) => o.vitrine_id));
+        const novos = pedidos
+          .filter((p) => !idsExistentes.has(p.id))
+          .map((p) => ({
+            id: `vitrine-${p.id}`,
+            vitrine_id: p.id,
+            numero: `VIT-${String(p.id).slice(-4).padStart(4, "0")}`,
+            cliente: p.cliente || "Cliente vitrine",
+            contato: "",
+            validade: addDias(7),
+            obs: p.obs || "",
+            itens: (p.itens || []).map((i) => ({
+              nome: i.nome, preco: i.preco || 0, custo: 0, qtd: i.qtd || 1, perso: false,
+            })),
+            total: p.total || 0,
+            status: "novo",
+            motivo: null,
+            criado_em: p.criado_em?.slice(0, 10) || hoje(),
+            origem: "vitrine",
+          }));
+        if (novos.length > 0) {
+          await supabase.from("orcamentos").upsert(novos.map(o => ({ ...o, user_id: user.id })));
+          setOrcamentos(prev => [...novos, ...prev]);
         }
-      } catch (e) {}
+      }
+      // real-time
+      channel = supabase.channel("orc-" + user.id)
+        .on("postgres_changes", { event: "*", schema: "public", table: "orcamentos", filter: `user_id=eq.${user.id}` },
+          async () => {
+            const { data } = await supabase.from("orcamentos").select("*").eq("user_id", user.id).order("criado_em", { ascending: false });
+            if (data) setOrcamentos(data);
+          })
+        .subscribe();
     })();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, []);
 
   const persistOrc = async (lista) => {
     setOrcamentos(lista);
-    try { await window.storage.set("orcamentos", JSON.stringify(lista)); } catch (e) {}
-  };
-  const persistVendas = async (lista) => {
-    setVendas(lista);
-    try { await window.storage.set("vendas", JSON.stringify(lista)); } catch (e) {}
+    if (lista.length > 0 && userId) {
+      await supabase.from("orcamentos").upsert(lista.map(o => ({ ...o, user_id: userId })));
+    }
   };
 
   // ── formulário novo orçamento ──
@@ -125,21 +132,22 @@ export default function Orcamentos() {
   };
   const totalForm = itens.reduce((s, i) => s + (parseFloat(i.preco) || 0) * (parseInt(i.qtd) || 0), 0);
 
-  const criarOrcamento = () => {
+  const criarOrcamento = async () => {
     if (!cliente.trim() || itens.length === 0) return;
     const o = {
-      id: Date.now(),
+      id: String(Date.now()),
       numero: "ORC-" + String(orcamentos.length + 1).padStart(4, "0"),
       cliente: cliente.trim(), contato: contato.trim(), validade, obs: obs.trim(),
       itens: itens.map((i) => ({ nome: i.nome, preco: parseFloat(i.preco) || 0, custo: parseFloat(i.custo) || 0, qtd: parseInt(i.qtd) || 1, perso: !!i.perso })),
-      total: totalForm, status: "pendente", motivo: null, criadoEm: hoje(),
+      total: totalForm, status: "pendente", motivo: null, criado_em: hoje(), origem: "manual",
     };
-    persistOrc([o, ...orcamentos]);
+    setOrcamentos(prev => [o, ...prev]);
+    if (userId) await supabase.from("orcamentos").insert({ ...o, user_id: userId });
     setCliente(""); setContato(""); setValidade(addDias(7)); setObs(""); setItens([]);
   };
 
   // ── ações de status ──
-  const marcarGanho = (o) => {
+  const marcarGanho = async (o) => {
     const novasVendas = o.itens.map((it, idx) => ({
       id: Date.now() + idx,
       produto: it.nome,
@@ -154,20 +162,32 @@ export default function Orcamentos() {
       parcelas: 1,
       status: "pago",
     }));
-    persistVendas([...novasVendas, ...vendas]);
-    persistOrc(orcamentos.map((x) => x.id === o.id ? { ...x, status: "ganho" } : x));
+    if (userId) {
+      await supabase.from("vendas").insert(novasVendas.map(v => ({ ...v, user_id: userId })));
+    }
+    setVendas(prev => [...novasVendas, ...prev]);
+    const updatedOrcs = orcamentos.map((x) => x.id === o.id ? { ...x, status: "ganho" } : x);
+    setOrcamentos(updatedOrcs);
+    if (userId) {
+      await supabase.from("orcamentos").update({ status: "ganho" }).eq("id", o.id).eq("user_id", userId);
+    }
   };
-  const marcarPerdido = (o, motivo) =>
-    persistOrc(orcamentos.map((x) => x.id === o.id ? { ...x, status: "perdido", motivo } : x));
-  const marcarPendente = (o) =>
-    persistOrc(orcamentos.map((x) => x.id === o.id ? { ...x, status: "pendente", motivo: null } : x));
+  const marcarPerdido = async (o, motivo) => {
+    setOrcamentos(prev => prev.map((x) => x.id === o.id ? { ...x, status: "perdido", motivo } : x));
+    if (userId) await supabase.from("orcamentos").update({ status: "perdido", motivo }).eq("id", o.id).eq("user_id", userId);
+  };
+  const marcarPendente = async (o) => {
+    setOrcamentos(prev => prev.map((x) => x.id === o.id ? { ...x, status: "pendente", motivo: null } : x));
+    if (userId) await supabase.from("orcamentos").update({ status: "pendente", motivo: null }).eq("id", o.id).eq("user_id", userId);
+  };
 
   const delOrc = async (o) => {
     // remove da vitrine se for pedido de vitrine
-    if (o.vitrineId) {
-      try { await supabase.from("pedidos_vitrine").delete().eq("id", o.vitrineId); } catch (e) {}
+    if (o.vitrine_id || o.vitrineId) {
+      try { await supabase.from("pedidos_vitrine").delete().eq("id", o.vitrine_id || o.vitrineId); } catch (e) {}
     }
-    persistOrc(orcamentos.filter((x) => x.id !== o.id));
+    setOrcamentos(prev => prev.filter((x) => x.id !== o.id));
+    if (userId) await supabase.from("orcamentos").delete().eq("id", o.id).eq("user_id", userId);
   };
 
   // ── editar orçamento ──
@@ -180,7 +200,7 @@ export default function Orcamentos() {
     setEItens(o.itens.map((i) => ({ ...i, id: i.id || Date.now() + Math.random() })));
   };
   const eTotal = eItens.reduce((s, i) => s + (parseFloat(i.preco) || 0) * (parseInt(i.qtd) || 0), 0);
-  const salvarEdicao = () => {
+  const salvarEdicao = async () => {
     const updated = {
       ...editando,
       cliente: eCliente.trim() || editando.cliente,
@@ -190,7 +210,10 @@ export default function Orcamentos() {
       itens: eItens.map((i) => ({ ...i, preco: parseFloat(i.preco) || 0, custo: parseFloat(i.custo) || 0, qtd: parseInt(i.qtd) || 1 })),
       total: eTotal,
     };
-    persistOrc(orcamentos.map((x) => x.id === editando.id ? updated : x));
+    setOrcamentos(prev => prev.map((x) => x.id === editando.id ? updated : x));
+    if (userId) {
+      await supabase.from("orcamentos").update({ ...updated, user_id: userId }).eq("id", editando.id).eq("user_id", userId);
+    }
     setEditando(null);
   };
 
@@ -246,7 +269,7 @@ export default function Orcamentos() {
               {o.contato && <div style={{ color: "#555" }}>{o.contato}</div>}
             </div>
             <div style={{ textAlign: "right", color: "#555" }}>
-              <div>Emitido: {fmtData(o.criadoEm)}</div>
+              <div>Emitido: {fmtData(o.criado_em || o.criadoEm)}</div>
               <div>Válido até: <strong>{fmtData(o.validade)}</strong></div>
             </div>
           </div>
@@ -485,7 +508,7 @@ export default function Orcamentos() {
                             {o.cliente}
                             {o.origem === "vitrine" && <span style={{ fontSize: 10, background: C.cyan + "33", color: C.cyan, borderRadius: 5, padding: "1px 6px" }}>vitrine</span>}
                           </div>
-                          <span style={{ fontSize: 11.5, color: C.mute }}>{o.numero} · {fmtData(o.criadoEm)}{o.validade ? ` · válido até ${fmtData(o.validade)}` : ""}</span>
+                          <span style={{ fontSize: 11.5, color: C.mute }}>{o.numero} · {fmtData(o.criado_em || o.criadoEm)}{o.validade ? ` · válido até ${fmtData(o.validade)}` : ""}</span>
                           {o.obs && <div style={{ fontSize: 12, color: C.mute, marginTop: 3, fontStyle: "italic" }}>{o.obs}</div>}
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 8 }}>

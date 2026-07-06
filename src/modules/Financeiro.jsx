@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 // ── Design tokens (mesma identidade da calculadora) ────────────
 const C = {
@@ -93,6 +94,7 @@ export default function Financeiro() {
   const [catalogo, setCatalogo] = useState([]);
   const [vendas, setVendas] = useState([]);
   const [despesas, setDespesas] = useState([]);
+  const [userId, setUserId] = useState("");
   const [aba, setAba] = useState("venda"); // venda | despesa | dashboard
   const [verLancamentos, setVerLancamentos] = useState(null); // null | "vendas" | "despesas" | "todos"
   const [mes, setMes] = useState(mesAtual());
@@ -133,30 +135,43 @@ export default function Financeiro() {
 
   // carrega catálogo + lançamentos persistidos
   useEffect(() => {
+    let channel;
     (async () => {
-      try {
-        const c = await window.storage.get("catalogo");
-        if (c && c.value) setCatalogo(JSON.parse(c.value));
-      } catch (e) {}
-      try {
-        const v = await window.storage.get("vendas");
-        if (v && v.value) setVendas(JSON.parse(v.value));
-      } catch (e) {}
-      try {
-        const d = await window.storage.get("despesas");
-        if (d && d.value) setDespesas(JSON.parse(d.value));
-      } catch (e) {}
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+      // carrega catálogo
+      const { data: cat } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+      if (cat?.produtos) setCatalogo(cat.produtos);
+      // carrega vendas
+      const { data: v } = await supabase.from("vendas").select("*").eq("user_id", user.id);
+      if (v) setVendas(v);
+      // carrega despesas (mapeia descricao → desc)
+      const { data: d } = await supabase.from("despesas").select("*").eq("user_id", user.id);
+      if (d) setDespesas(d.map(x => ({ ...x, desc: x.descricao })));
+      // migração única de localStorage (se supabase vazio)
+      if (!v?.length) {
+        try {
+          const lv = localStorage.getItem("app3d:vendas") || localStorage.getItem("vendas");
+          if (lv) { const arr = JSON.parse(lv); if (arr.length) { await supabase.from("vendas").upsert(arr.map(x => ({ ...x, user_id: user.id }))); setVendas(arr); } }
+        } catch {}
+      }
+      if (!d?.length) {
+        try {
+          const ld = localStorage.getItem("app3d:despesas") || localStorage.getItem("despesas");
+          if (ld) { const arr = JSON.parse(ld); if (arr.length) { await supabase.from("despesas").upsert(arr.map(x => ({ ...x, descricao: x.desc, user_id: user.id }))); setDespesas(arr); } }
+        } catch {}
+      }
+      // real-time
+      channel = supabase.channel("fin-" + user.id)
+        .on("postgres_changes", { event: "*", schema: "public", table: "vendas", filter: `user_id=eq.${user.id}` },
+          async () => { const { data } = await supabase.from("vendas").select("*").eq("user_id", user.id); if (data) setVendas(data); })
+        .on("postgres_changes", { event: "*", schema: "public", table: "despesas", filter: `user_id=eq.${user.id}` },
+          async () => { const { data } = await supabase.from("despesas").select("*").eq("user_id", user.id); if (data) setDespesas(data.map(x => ({ ...x, desc: x.descricao }))); })
+        .subscribe();
     })();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, []);
-
-  const persistVendas = async (lista) => {
-    setVendas(lista);
-    try { await window.storage.set("vendas", JSON.stringify(lista)); } catch (e) {}
-  };
-  const persistDespesas = async (lista) => {
-    setDespesas(lista);
-    try { await window.storage.set("despesas", JSON.stringify(lista)); } catch (e) {}
-  };
 
   // ao escolher produto do catálogo, sugere o preço já precificado
   const escolherProduto = (nome) => {
@@ -185,7 +200,8 @@ export default function Financeiro() {
       parcelas: vPagamento === "cartao" ? (parseInt(vParcelas) || 1) : 1,
       status: vStatus,
     };
-    persistVendas([v, ...vendas]);
+    setVendas(prev => [v, ...prev]);
+    await supabase.from("vendas").insert({ ...v, user_id: userId });
     setVProduto(""); setVQtd(1); setVValor(""); setVData(hoje());
     setVCliente(""); setVPagamento("pix"); setVParcelas(1); setVStatus("pago");
   };
@@ -200,12 +216,19 @@ export default function Financeiro() {
       valor,
       data: dData,
     };
-    persistDespesas([d, ...despesas]);
+    setDespesas(prev => [d, ...prev]);
+    await supabase.from("despesas").insert({ ...d, descricao: d.desc, user_id: userId });
     setDDesc(""); setDValor(""); setDData(hoje());
   };
 
-  const delVenda = (id) => persistVendas(vendas.filter((v) => v.id !== id));
-  const delDespesa = (id) => persistDespesas(despesas.filter((d) => d.id !== id));
+  const delVenda = async (id) => {
+    setVendas(prev => prev.filter(v => v.id !== id));
+    await supabase.from("vendas").delete().eq("id", id).eq("user_id", userId);
+  };
+  const delDespesa = async (id) => {
+    setDespesas(prev => prev.filter(d => d.id !== id));
+    await supabase.from("despesas").delete().eq("id", id).eq("user_id", userId);
+  };
 
   const abrirEditVenda = (v) => {
     setEditVenda(v);
@@ -213,16 +236,18 @@ export default function Financeiro() {
     setEvCliente(v.cliente || ""); setEvPagamento(v.pagamento || "pix");
     setEvParcelas(v.parcelas || 1); setEvStatus(v.status || "pago");
   };
-  const salvarEditVenda = () => {
+  const salvarEditVenda = async () => {
     const valor = parseFloat(evValor) || 0;
     const qtd = parseInt(evQtd) || 1;
     const prod = catalogo.find((x) => x.nome === evProduto);
     const custoUnit = prod ? prod.custo : editVenda.custo / editVenda.qtd;
-    persistVendas(vendas.map((v) => v.id !== editVenda.id ? v : {
-      ...v, produto: evProduto, qtd, valor: valor * qtd, custo: custoUnit * qtd,
+    const updated = {
+      ...editVenda, produto: evProduto, qtd, valor: valor * qtd, custo: custoUnit * qtd,
       lucro: (valor - custoUnit) * qtd, data: evData, cliente: evCliente,
       pagamento: evPagamento, parcelas: evPagamento === "cartao" ? parseInt(evParcelas) : 1, status: evStatus,
-    }));
+    };
+    setVendas(prev => prev.map(v => v.id !== editVenda.id ? v : updated));
+    await supabase.from("vendas").update({ ...updated, user_id: userId }).eq("id", editVenda.id).eq("user_id", userId);
     setEditVenda(null);
   };
 
@@ -230,9 +255,11 @@ export default function Financeiro() {
     setEditDespesa(d);
     setEdDesc(d.desc); setEdCat(d.categoria); setEdValor(String(d.valor)); setEdData(d.data);
   };
-  const salvarEditDespesa = () => {
+  const salvarEditDespesa = async () => {
     const valor = parseFloat(edValor) || 0;
-    persistDespesas(despesas.map((d) => d.id !== editDespesa.id ? d : { ...d, desc: edDesc.trim(), categoria: edCat, valor, data: edData }));
+    const updated = { ...editDespesa, desc: edDesc.trim(), categoria: edCat, valor, data: edData };
+    setDespesas(prev => prev.map(d => d.id !== editDespesa.id ? d : updated));
+    await supabase.from("despesas").update({ ...updated, descricao: edDesc.trim(), user_id: userId }).eq("id", editDespesa.id).eq("user_id", userId);
     setEditDespesa(null);
   };
 

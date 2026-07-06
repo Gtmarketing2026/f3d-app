@@ -161,7 +161,23 @@ export default function Catalogo() {
   const [whatsapp, setWhatsapp] = useState(() => localStorage.getItem("app3d:whatsapp") || "");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => { if (user) setUserId(user.id); });
+    let channel;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const { data: cat } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+        if (cat?.produtos) setProdutos(cat.produtos);
+        channel = supabase.channel("cat-" + user.id)
+          .on("postgres_changes", { event: "*", schema: "public", table: "catalogo", filter: `user_id=eq.${user.id}` },
+            async () => {
+              const { data } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+              if (data?.produtos) setProdutos(data.produtos);
+            })
+          .subscribe();
+      }
+    })();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, []);
 
   const salvarWhatsapp = (val) => {
@@ -182,26 +198,36 @@ export default function Catalogo() {
   const [perso, setPerso] = useState({ titulo: "", descricao: "", qtd: 1, ref: "" });
 
   useEffect(() => {
+    // migração única de localStorage → já carregado pelo useEffect do supabase acima
+    // mas migramos produtos antigos do localStorage se o supabase vier vazio
     (async () => {
-      try { const c = await window.storage.get("catalogo"); if (c?.value) {
-        const arr = JSON.parse(c.value).map((p) => {
-          const base = {
-            descricao: "", imagem: "",
-            ...p,
-            precoVarejo: p.precoVarejo ?? p.preco ?? 0,
-          };
-          // migra faixa única antiga → array faixas
-          if (!base.faixas) {
-            base.faixas = (p.precoAtacado > 0 && p.qtdAtacado > 0)
-              ? [{ id: 1, qtd: p.qtdAtacado, preco: p.precoAtacado }]
-              : [];
-          }
-          delete base.precoAtacado; delete base.qtdAtacado;
-          return base;
-        });
-        setProdutos(arr);
-      } } catch (e) {}
-      try { const o = await window.storage.get("orcamentos"); if (o?.value) setOrcamentos(JSON.parse(o.value)); } catch (e) {}
+      // aguarda um tick para userId estar disponível via supabase.auth
+      setTimeout(async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: existing } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+        if (!existing?.produtos?.length) {
+          try {
+            const lsKey = Object.keys(localStorage).find(k => k.includes("catalogo"));
+            const raw = lsKey ? localStorage.getItem(lsKey) : null;
+            if (raw) {
+              const arr = JSON.parse(raw).map((p) => {
+                const base = { descricao: "", imagem: "", ...p, precoVarejo: p.precoVarejo ?? p.preco ?? 0 };
+                if (!base.faixas) {
+                  base.faixas = (p.precoAtacado > 0 && p.qtdAtacado > 0)
+                    ? [{ id: 1, qtd: p.qtdAtacado, preco: p.precoAtacado }] : [];
+                }
+                delete base.precoAtacado; delete base.qtdAtacado;
+                return base;
+              });
+              if (arr.length) {
+                await supabase.from("catalogo").upsert({ user_id: user.id, produtos: arr });
+                setProdutos(arr);
+              }
+            }
+          } catch (e) {}
+        }
+      }, 500);
     })();
   }, []);
 
@@ -227,11 +253,13 @@ export default function Catalogo() {
 
   const persist = async (lista) => {
     setProdutos(lista);
-    try { await window.storage.set("catalogo", JSON.stringify(lista)); } catch (e) {}
+    if (userId) await supabase.from("catalogo").upsert({ user_id: userId, produtos: lista });
   };
   const persistOrc = async (lista) => {
     setOrcamentos(lista);
-    try { await window.storage.set("orcamentos", JSON.stringify(lista)); } catch (e) {}
+    if (lista.length > 0 && userId) {
+      await supabase.from("orcamentos").upsert(lista.map(o => ({ ...o, user_id: userId })));
+    }
   };
 
   const canais = useMemo(() => {
