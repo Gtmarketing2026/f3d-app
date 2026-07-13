@@ -577,8 +577,7 @@ export default function Catalogo() {
                 <p style={{ fontSize: 13.5, color: C.mute, margin: 0 }}>
                   {produtos.length === 0 ? "Catálogo vazio. Importe um CSV ou precifique produtos na calculadora." : "Nenhum produto com esses filtros."}
                 </p>
-              ) : (
-                {(() => {
+              ) : (() => {
                   // canal selecionado no filtro → pega taxa
                   const canalInfo = fCanal !== "todos"
                     ? CANAIS_VENDA.find(c => c.nome === fCanal)
@@ -671,8 +670,8 @@ export default function Catalogo() {
                       </table>
                     </div>
                   );
-                })()}
-              )}
+                })()
+              }
             </div>
           </>
         ) : (

@@ -180,7 +180,7 @@ export default function Financeiro() {
     if (p) setVValor(String(p.preco.toFixed(2)));
   };
 
-  const registrarVenda = () => {
+  const registrarVenda = async () => {
     const valor = parseFloat(vValor) || 0;
     const qtd = parseInt(vQtd) || 1;
     if (!vProduto || valor <= 0) return;
@@ -206,7 +206,7 @@ export default function Financeiro() {
     setVCliente(""); setVPagamento("pix"); setVParcelas(1); setVStatus("pago");
   };
 
-  const registrarDespesa = () => {
+  const registrarDespesa = async () => {
     const valor = parseFloat(dValor) || 0;
     if (!dDesc.trim() || valor <= 0) return;
     const d = {
