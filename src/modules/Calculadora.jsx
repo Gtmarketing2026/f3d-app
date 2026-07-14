@@ -1100,7 +1100,7 @@ export default function Calculadora() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {/* cabeçalho */}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.1fr 0.9fr 0.9fr 0.9fr 32px", gap: 10, padding: "0 4px", fontSize: 11, color: C.mute, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.1fr 0.9fr 0.9fr 0.9fr 64px", gap: 10, padding: "0 4px", fontSize: 11, color: C.mute, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 <span>Produto</span>
                 <span>Canal</span>
                 <span style={{ textAlign: "right" }}>Custo</span>
@@ -1114,7 +1114,7 @@ export default function Calculadora() {
                   onClick={() => carregarProduto(p)}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "2fr 1.1fr 0.9fr 0.9fr 0.9fr 32px",
+                    gridTemplateColumns: "2fr 1.1fr 0.9fr 0.9fr 0.9fr 64px",
                     gap: 10,
                     alignItems: "center",
                     background: p.id === editandoId ? C.heatDim : C.bg,
@@ -1134,13 +1134,28 @@ export default function Calculadora() {
                   <span style={{ fontSize: 13, color: C.mute, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{brl(p.custo)}</span>
                   <span style={{ fontSize: 14, color: C.heat, fontWeight: 700, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{brl(p.preco)}</span>
                   <span style={{ fontSize: 13, color: C.cyan, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{brl(p.lucro)}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removerDoCatalogo(p.id); }}
-                    style={{ background: "transparent", border: "none", color: C.mute, cursor: "pointer", fontSize: 17, lineHeight: 1 }}
-                    title="Remover"
-                  >
-                    ×
-                  </button>
+                  <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const copia = { ...p, id: Date.now(), nome: p.nome + " (cópia)" };
+                        const nova = [...catalogo, copia];
+                        persistir(nova);
+                        carregarProduto(copia);
+                      }}
+                      style={{ background: "transparent", border: "none", color: C.cyan, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "2px 3px" }}
+                      title="Duplicar e editar"
+                    >
+                      ⧉
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removerDoCatalogo(p.id); }}
+                      style={{ background: "transparent", border: "none", color: C.mute, cursor: "pointer", fontSize: 17, lineHeight: 1, padding: "2px 3px" }}
+                      title="Remover"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
