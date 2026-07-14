@@ -41,6 +41,14 @@ const EXTRAS_PADRAO = [
   { id: 4, nome: "Impresso",  valor: 1.00 },
 ];
 
+// Presets de impressora — watts e vida útil estimada
+const MAQUINAS = [
+  { id: "ender3",  nome: "Ender 3",    potenciaW: 250, vidaUtilH: 5000 },
+  { id: "bambuA1", nome: "Bambu A1",   potenciaW: 350, vidaUtilH: 4000 },
+  { id: "bambuX1", nome: "Bambu X1C",  potenciaW: 500, vidaUtilH: 6000 },
+  { id: "resina",  nome: "Resina LCD", potenciaW: 80,  vidaUtilH: 2000 },
+];
+
 // Presets de marketplace — no SaaS, cada cliente edita/cria os seus.
 // Valores médios de referência (comissões variam por categoria/plano).
 const PRESETS = [
@@ -560,6 +568,25 @@ export default function Calculadora() {
           {/* configs */}
           <div style={panelStyle}>
             <h2 style={heading}>Custos da conta</h2>
+
+            {/* machine presets */}
+            <div style={{ marginBottom: 14 }}>
+              <span style={{ display: "block", fontSize: 12, color: C.mute, marginBottom: 8 }}>Impressora (preenche W e vida útil)</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                {MAQUINAS.map((m) => {
+                  const on = potenciaW === m.potenciaW && vidaUtilH === m.vidaUtilH;
+                  return (
+                    <button key={m.id} onClick={() => { setPotenciaW(m.potenciaW); setVidaUtilH(m.vidaUtilH); }}
+                      style={{ padding: "6px 11px", fontSize: 12.5, borderRadius: 7, cursor: "pointer", fontWeight: on ? 600 : 400,
+                        color: on ? C.heat : C.mute, background: on ? C.heatDim : "transparent",
+                        border: `1px solid ${on ? C.heat : C.line}` }}>
+                      {m.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <NumInput label="Potência da impressora" suffix="W" value={potenciaW} onChange={setPotenciaW} />
             <NumInput label="Tarifa de energia" suffix="R$/kWh" value={tarifaKwh} onChange={setTarifaKwh} step="0.01" />
             <NumInput label="Custo da máquina" suffix="R$" value={custoMaquina} onChange={setCustoMaquina} />
@@ -567,7 +594,25 @@ export default function Calculadora() {
             <NumInput label="Manutenção" suffix="R$/h" value={manutHora} onChange={setManutHora} step="0.1" />
             <NumInput label="Mão de obra (R$/h)" suffix="R$/h" value={maoObraHora} onChange={setMaoObraHora} />
             <NumInput label="Taxa de falha" suffix="%" value={taxaFalha} onChange={setTaxaFalha} />
-            <NumInput label="Margem de lucro" suffix="%" value={margem} onChange={setMargem} />
+
+            {/* margin quick-select */}
+            <div style={{ marginBottom: 14 }}>
+              <span style={{ display: "block", fontSize: 12, color: C.mute, marginBottom: 8 }}>Margem de lucro</span>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                {[25, 40, 60, 80].map((v) => {
+                  const on = parseFloat(margem) === v;
+                  return (
+                    <button key={v} onClick={() => setMargem(v)}
+                      style={{ flex: 1, padding: "7px 0", fontSize: 12.5, borderRadius: 7, cursor: "pointer", fontWeight: on ? 700 : 400,
+                        color: on ? C.heat : C.mute, background: on ? C.heatDim : "transparent",
+                        border: `1px solid ${on ? C.heat : C.line}` }}>
+                      {v}%
+                    </button>
+                  );
+                })}
+              </div>
+              <NumInput label="" suffix="%" value={margem} onChange={setMargem} />
+            </div>
 
             <button onClick={salvarPadraoCustos}
               style={{ width: "100%", padding: "10px 0", borderRadius: 9, border: `1px solid ${padraoCustosSalvo ? C.green : C.line}`, background: padraoCustosSalvo ? "#7bd88f18" : "transparent", color: padraoCustosSalvo ? C.green : C.mute, fontWeight: 700, fontSize: 13, cursor: "pointer", marginTop: 4, transition: "all .2s" }}>
@@ -793,6 +838,32 @@ export default function Calculadora() {
                 </div>
               )}
             </div>
+
+            {/* ROI / Payback */}
+            {calc.lucroPeca > 0 && custoMaquina > 0 && (
+              <div style={{ ...panelStyle, background: C.panel2 }}>
+                <div style={{ fontSize: 12, color: C.cyan, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>
+                  Payback da máquina
+                </div>
+                {(() => {
+                  const pecas = Math.ceil(custoMaquina / calc.lucroPeca);
+                  const meses = (pecas / 30).toFixed(0);
+                  return (
+                    <>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: C.ink, fontVariantNumeric: "tabular-nums" }}>
+                        {pecas.toLocaleString("pt-BR")} peças
+                      </div>
+                      <div style={{ fontSize: 12.5, color: C.mute, marginTop: 4 }}>
+                        ~{meses} meses vendendo 30 por dia
+                      </div>
+                      <div style={{ fontSize: 12, color: C.mute, marginTop: 6 }}>
+                        {brl(custoMaquina)} ÷ {brl(calc.lucroPeca)} lucro/peça
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* preço varejo e atacado */}
             <div style={{ ...panelStyle, display: "flex", flexDirection: "column", gap: 14 }}>
