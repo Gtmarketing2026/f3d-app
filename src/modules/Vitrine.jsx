@@ -22,16 +22,17 @@ export default function Vitrine({ userId }) {
   const [busca, setBusca] = useState("");
   const [catAtiva, setCatAtiva] = useState("todos");
   const [subcatAtiva, setSubcatAtiva] = useState("todos");
+  const [cfg, setCfg] = useState({ nome_empresa: "", cor_primaria: "#ff6a2b", logo_base64: null });
 
   useEffect(() => {
     async function fetchCatalogo() {
-      const { data, error } = await supabase
-        .from("catalogo")
-        .select("produtos")
-        .eq("user_id", userId)
-        .single();
+      const [{ data, error }, { data: cfgData }] = await Promise.all([
+        supabase.from("catalogo").select("produtos").eq("user_id", userId).single(),
+        supabase.from("configuracoes").select("*").eq("user_id", userId).single(),
+      ]);
       if (error || !data) { setErro("Vitrine não encontrada."); setCarregando(false); return; }
       setProdutos(data.produtos || []);
+      if (cfgData) setCfg(cfgData);
       setCarregando(false);
     }
     if (userId) fetchCatalogo();
@@ -108,6 +109,8 @@ export default function Vitrine({ userId }) {
     setPedidoEnviado(false);
   };
 
+  const corMarca = cfg.cor_primaria || C.heat;
+
   const inputStyle = {
     background: C.bg, border: `1px solid ${C.line}`, borderRadius: 8,
     color: C.ink, padding: "8px 10px", fontSize: 14, outline: "none",
@@ -153,8 +156,11 @@ export default function Vitrine({ userId }) {
 
       {/* header */}
       <div style={{ background: C.panel, borderBottom: `1px solid ${C.line}`, padding: "16px 24px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: `linear-gradient(135deg, ${C.heat}, #ff9b5e)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>◳</div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>F3D · Vitrine</div>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: cfg.logo_base64 ? "transparent" : `linear-gradient(135deg, ${cfg.cor_primaria || C.heat}, ${cfg.cor_primaria || "#ff9b5e"}99)`,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, overflow: "hidden", flexShrink: 0 }}>
+          {cfg.logo_base64 ? <img src={cfg.logo_base64} alt="logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : "◳"}
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{cfg.nome_empresa || "F3D"} · Vitrine</div>
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 20px 80px" }}>
@@ -354,7 +360,7 @@ export default function Vitrine({ userId }) {
                       style={{ background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, color: C.ink, padding: "12px 14px", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit" }}
                     />
                     <button onClick={enviarPedido} disabled={!nomeCliente.trim()}
-                      style={{ padding: "13px 24px", borderRadius: 10, border: "none", background: nomeCliente.trim() ? C.heat : C.line, color: nomeCliente.trim() ? "#1a0d05" : C.mute, fontWeight: 700, fontSize: 14, cursor: nomeCliente.trim() ? "pointer" : "not-allowed" }}>
+                      style={{ padding: "13px 24px", borderRadius: 10, border: "none", background: nomeCliente.trim() ? corMarca : C.line, color: nomeCliente.trim() ? "#fff" : C.mute, fontWeight: 700, fontSize: 14, cursor: nomeCliente.trim() ? "pointer" : "not-allowed" }}>
                       Enviar pedido via WhatsApp
                     </button>
                   </div>
