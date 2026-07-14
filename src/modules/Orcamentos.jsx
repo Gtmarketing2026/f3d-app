@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { useConfig } from "../lib/ConfigContext";
 
 const C = {
   bg: "#13151a", panel: "#1b1e26", panel2: "#222631", line: "#2e3342",
@@ -29,6 +30,7 @@ const STATUS = {
 };
 
 export default function Orcamentos() {
+  const { config } = useConfig();
   const [catalogo, setCatalogo]     = useState([]);
   const [orcamentos, setOrcamentos] = useState([]);
   const [vendas, setVendas]         = useState([]);
@@ -241,6 +243,20 @@ export default function Orcamentos() {
   const gerarDoc = (o) => setDocOrc(o);
   const imprimir = () => window.print();
 
+  const copiarWhatsApp = (o) => {
+    const linhas = [
+      `*Orçamento ${o.numero}*`,
+      `Cliente: ${o.cliente}`,
+      ``,
+      ...o.itens.map(it => `• ${it.nome} ×${it.qtd} — ${brl(it.preco * it.qtd)}`),
+      ``,
+      `*Total: ${brl(o.total)}*`,
+      `Válido até: ${fmtData(o.validade)}`,
+      o.obs ? `\nObs: ${o.obs}` : "",
+    ].filter(l => l !== undefined);
+    navigator.clipboard.writeText(linhas.join("\n")).catch(() => {});
+  };
+
   // ── documento ──
   if (docOrc) {
     const o = docOrc;
@@ -250,12 +266,18 @@ export default function Orcamentos() {
         <div className="noprint" style={{ maxWidth: 720, margin: "0 auto 16px", display: "flex", gap: 10 }}>
           <button onClick={() => setDocOrc(null)} style={{ padding: "10px 16px", borderRadius: 9, border: "1px solid #ccc", background: "#fff", cursor: "pointer", fontSize: 14 }}>← Voltar</button>
           <button onClick={imprimir} style={{ padding: "10px 16px", borderRadius: 9, border: "none", background: C.heat, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>Imprimir / Salvar PDF</button>
+          <button onClick={() => copiarWhatsApp(o)} style={{ padding: "10px 16px", borderRadius: 9, border: "none", background: "#25D366", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>Copiar p/ WhatsApp</button>
         </div>
         <div style={{ maxWidth: 720, margin: "0 auto", background: "#fff", padding: "48px 52px", borderRadius: 8, color: "#1a1a1f", boxShadow: "0 4px 24px #0002" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3px solid #ff6a2b", paddingBottom: 18, marginBottom: 24 }}>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.3 }}>Sua Marca 3D</div>
-              <div style={{ fontSize: 12.5, color: "#666", marginTop: 2 }}>Impressão 3D sob demanda</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `3px solid ${config.cor_primaria || "#ff6a2b"}`, paddingBottom: 18, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {config.logo_base64 && (
+                <img src={config.logo_base64} alt="logo" style={{ height: 44, width: 44, objectFit: "contain", borderRadius: 6 }} />
+              )}
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.3 }}>{config.nome_empresa || "F3D"}</div>
+                <div style={{ fontSize: 12.5, color: "#666", marginTop: 2 }}>Impressão 3D sob demanda</div>
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#ff6a2b" }}>ORÇAMENTO</div>
@@ -295,9 +317,9 @@ export default function Orcamentos() {
           </table>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
             <div style={{ minWidth: 220 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px", background: "#fff4ee", borderRadius: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px", background: `${config.cor_primaria || "#ff6a2b"}18`, borderRadius: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 15 }}>Total</span>
-                <span style={{ fontWeight: 800, fontSize: 18, color: "#ff6a2b" }}>{brl(o.total)}</span>
+                <span style={{ fontWeight: 800, fontSize: 18, color: config.cor_primaria || "#ff6a2b" }}>{brl(o.total)}</span>
               </div>
             </div>
           </div>
@@ -519,6 +541,7 @@ export default function Orcamentos() {
 
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <button onClick={() => gerarDoc(o)} style={btnMini(C.cyan)}>Documento</button>
+                        <button onClick={() => copiarWhatsApp(o)} style={btnMini("#25D366")} title="Copiar mensagem formatada">WhatsApp</button>
                         {(o.status === "novo" || o.status === "pendente") && (
                           <>
                             <button onClick={() => marcarGanho(o)} style={btnMini(C.green)}>✓ Vendido</button>
