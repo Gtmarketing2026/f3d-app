@@ -8,6 +8,8 @@ import Catalogo from "./modules/Catalogo";
 import Orcamentos from "./modules/Orcamentos";
 import Financeiro from "./modules/Financeiro";
 import Estoque from "./modules/Estoque";
+import Producao from "./modules/Producao";
+import Impressoras from "./modules/Impressoras";
 import Planos from "./modules/Planos";
 import Login from "./modules/Login";
 import Vitrine from "./modules/Vitrine";
@@ -24,6 +26,8 @@ const COMPONENTES = {
   orcamentos: Orcamentos,
   financeiro: Financeiro,
   estoque: Estoque,
+  producao: Producao,
+  impressoras: Impressoras,
 };
 
 const ATIVO_DEFAULT = "configuracoes";

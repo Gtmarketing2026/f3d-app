@@ -54,9 +54,31 @@ export const MODULOS = {
     integraCom: ["catalogo"],
     standalone: true,
   },
+  producao: {
+    id: "producao",
+    nome: "Produção",
+    descricao: "Fila de impressão com status por job, atribuição de impressora e saída automática para estoque de produtos acabados ao concluir.",
+    icone: "🏭",
+    precoUnico: 19.90,
+    precoAtualizacao: 9.90,
+    precoMensal: null,
+    integraCom: ["orcamentos", "estoque", "impressoras"],
+    standalone: false,
+  },
+  impressoras: {
+    id: "impressoras",
+    nome: "Impressoras",
+    descricao: "Cadastro do parque de máquinas com vida útil, custo de depreciação por hora e rastreamento de horas acumuladas por impressora.",
+    icone: "🖨️",
+    precoUnico: 0,
+    precoAtualizacao: 0,
+    precoMensal: null,
+    integraCom: ["producao"],
+    standalone: true,
+  },
 };
 
-export const ORDEM_MODULOS = ["calculadora", "catalogo", "orcamentos", "financeiro", "estoque"];
+export const ORDEM_MODULOS = ["calculadora", "catalogo", "orcamentos", "financeiro", "estoque", "producao", "impressoras"];
 
 // Licença
 const LICENCA_KEY = "app3d:licenca";

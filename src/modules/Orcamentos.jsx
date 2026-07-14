@@ -452,13 +452,16 @@ export default function Orcamentos() {
               <div key={it.id} style={{ background: C.bg, border: `1px solid ${it.perso ? C.cyan + "66" : C.line}`, borderRadius: 9, padding: 10, marginBottom: 8 }}>
                 {it.perso && <div style={{ fontSize: 11, color: C.cyan, fontWeight: 600, marginBottom: 6 }}>● Personalizado</div>}
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  {it.perso || catalogo.length === 0 ? (
-                    <input placeholder="Descreva o item" value={it.nome} onChange={(e) => updItem(it.id, { nome: e.target.value })} style={{ ...field, flex: 1 }} />
-                  ) : (
-                    <select value={it.nome} onChange={(e) => escolherItem(it.id, e.target.value)} style={{ ...field, flex: 1 }}>
-                      {catalogo.map((p) => <option key={p.id} value={p.nome}>{p.nome}</option>)}
-                    </select>
-                  )}
+                  <input
+                    list="orcamento-catalogo-list"
+                    placeholder="Nome do produto ou serviço"
+                    value={it.nome}
+                    onChange={(e) => escolherItem(it.id, e.target.value)}
+                    style={{ ...field, flex: 1 }}
+                  />
+                  <datalist id="orcamento-catalogo-list">
+                    {catalogo.map((p) => <option key={p.id} value={p.nome} />)}
+                  </datalist>
                   <button onClick={() => delItem(it.id)} style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.mute, borderRadius: 7, width: 36, cursor: "pointer", fontSize: 16 }}>×</button>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
