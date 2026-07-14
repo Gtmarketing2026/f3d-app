@@ -139,6 +139,10 @@ export default function Calculadora() {
   const posProcH = posProcHoras + posProcMinutos / 60;
   const [qtd, setQtd] = useState(1);
   const [nomeProduto, setNomeProduto] = useState("");
+  // multi-material
+  const [usarSegFilamento, setUsarSegFilamento] = useState(false);
+  const [precoKg2, setPrecoKg2] = useState(80);
+  const [pctFilamento1, setPctFilamento1] = useState(70);
 
   // catálogo (persiste entre sessões)
   const [catalogo, setCatalogo] = useState([]);
@@ -198,6 +202,11 @@ export default function Calculadora() {
   const [taxaFalha, setTaxaFalha] = useState(padrao.taxaFalha ?? 8);
   const [margem, setMargem] = useState(padrao.margem ?? 60);
   const [padraoCustosSalvo, setPadraoCustosSalvo] = useState(false);
+  // histórico de cálculos
+  const [historico, setHistorico] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("app3d:historico") || "[]"); } catch { return []; }
+  });
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [precoVarejo, setPrecoVarejo] = useState("");
   const [precoAtacado, setPrecoAtacado] = useState("");
   const [qtdAtacado, setQtdAtacado] = useState(10);
@@ -214,7 +223,10 @@ export default function Calculadora() {
     const n = Math.max(1, parseInt(qtd) || 1);
 
     // custos por peça
-    const material = (f(pesoG) / 1000) * f(precoKg);
+    const precoMistura = usarSegFilamento
+      ? f(precoKg) * (f(pctFilamento1) / 100) + f(precoKg2) * (1 - f(pctFilamento1) / 100)
+      : f(precoKg);
+    const material = (f(pesoG) / 1000) * precoMistura;
     const energia = (f(potenciaW) / 1000) * f(tempoH) * f(tarifaKwh);
     const deprec = (f(custoMaquina) / f(vidaUtilH || 1)) * f(tempoH);
     const manut = f(manutHora) * f(tempoH);
@@ -282,7 +294,7 @@ export default function Calculadora() {
       // imposto de nota (venda direta)
       impostoNFValor, precoComMargem,
     };
-  }, [pesoG, tempoHoras, tempoMinutos, precoKg, posProcHoras, posProcMinutos, qtd, extras, mktMin, mktMax, potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem, modoMkt, comissao, taxaFixa, imposto, freteEmbutido, usarImposto, impostoNF]);
+  }, [pesoG, tempoHoras, tempoMinutos, precoKg, posProcHoras, posProcMinutos, qtd, extras, mktMin, mktMax, potenciaW, tarifaKwh, custoMaquina, vidaUtilH, manutHora, maoObraHora, taxaFalha, margem, modoMkt, comissao, taxaFixa, imposto, freteEmbutido, usarImposto, impostoNF, usarSegFilamento, precoKg2, pctFilamento1]);
 
   const addExtra = () =>
     setExtras((p) => [...p, { id: Date.now(), nome: "", valor: "" }]);
@@ -375,6 +387,22 @@ export default function Calculadora() {
       setFreteEmbutido(0);
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const salvarHistorico = () => {
+    const entrada = {
+      id: Date.now(),
+      nome: nomeProduto.trim() || "Sem nome",
+      data: new Date().toLocaleDateString("pt-BR"),
+      custo: calc.comFalhaPeca,
+      preco: modoMkt ? calc.precoMkt : calc.finalPeca,
+      lucro: calc.lucroPeca,
+      margem: parseFloat(margem) || 0,
+      pesoG, precoKg, tempoH, potenciaW,
+    };
+    const novo = [entrada, ...historico].slice(0, 30);
+    setHistorico(novo);
+    localStorage.setItem("app3d:historico", JSON.stringify(novo));
   };
 
   const cancelarEdicao = () => {
@@ -488,7 +516,35 @@ export default function Calculadora() {
                 </div>
               </div>
             </label>
-            <NumInput label="Preço do filamento" suffix="R$/kg" value={precoKg} onChange={setPrecoKg} />
+            <NumInput label="Preço do filamento 1" suffix="R$/kg" value={precoKg} onChange={setPrecoKg} />
+
+            {/* multi-material */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                <span style={{ fontSize: 12, color: C.mute }}>Segundo filamento (multi-material)</span>
+                <button onClick={() => setUsarSegFilamento(v => !v)}
+                  style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer",
+                    background: usarSegFilamento ? C.heat : C.line, position: "relative", transition: "background .15s", flexShrink: 0 }}>
+                  <span style={{ position: "absolute", top: 2, left: usarSegFilamento ? 18 : 2, width: 16, height: 16,
+                    borderRadius: "50%", background: "#fff", transition: "left .15s" }} />
+                </button>
+              </label>
+              {usarSegFilamento && (
+                <div style={{ marginTop: 10 }}>
+                  <NumInput label="Preço do filamento 2" suffix="R$/kg" value={precoKg2} onChange={setPrecoKg2} />
+                  <div>
+                    <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.mute, marginBottom: 6 }}>
+                      <span>% do filamento 1</span>
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>{pctFilamento1}% / {100 - pctFilamento1}%</span>
+                    </span>
+                    <input type="range" min="5" max="95" step="5" value={pctFilamento1}
+                      onChange={e => setPctFilamento1(Number(e.target.value))}
+                      style={{ width: "100%", accentColor: C.heat }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <label style={{ display: "block", marginBottom: 14 }}>
               <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, letterSpacing: 0.3, color: C.mute, marginBottom: 6 }}>
                 Mão de obra pós impressão
@@ -622,52 +678,33 @@ export default function Calculadora() {
               Esses valores serão carregados automaticamente em novos cálculos.
             </div>
 
-            {/* imposto de nota (venda direta) */}
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}` }}>
-              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: modoMkt ? "default" : "pointer", opacity: modoMkt ? 0.45 : 1 }}>
-                <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>
-                  Imposto de nota (venda direta)
-                </span>
-                <button
-                  disabled={modoMkt}
-                  onClick={() => setUsarImposto((v) => !v)}
-                  style={{
-                    width: 44,
-                    height: 24,
-                    borderRadius: 12,
-                    border: "none",
-                    cursor: modoMkt ? "default" : "pointer",
-                    background: usarImposto && !modoMkt ? C.heat : C.line,
-                    position: "relative",
-                    transition: "background .15s",
-                  }}
-                >
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 2,
-                      left: usarImposto && !modoMkt ? 22 : 2,
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: "#fff",
-                      transition: "left .15s",
-                    }}
-                  />
-                </button>
-              </label>
-              {modoMkt ? (
-                <p style={{ fontSize: 12, color: C.mute, margin: "8px 0 0", lineHeight: 1.5 }}>
-                  No marketplace, o imposto fica no campo próprio abaixo.
-                </p>
-              ) : usarImposto ? (
-                <div style={{ marginTop: 12 }}>
-                  <p style={{ fontSize: 12.5, color: C.mute, margin: "0 0 12px", lineHeight: 1.5 }}>
-                    Alíquota sobre a venda (Simples, MEI etc.). O preço sobe pra cobrir o imposto sem comer seu lucro.
-                  </p>
-                  <NumInput label="Alíquota" suffix="%" value={impostoNF} onChange={setImpostoNF} step="0.1" />
-                </div>
-              ) : null}
+            {/* tributação (venda direta) */}
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.line}`, opacity: modoMkt ? 0.45 : 1 }}>
+              <span style={{ display: "block", fontSize: 12, color: C.mute, marginBottom: 8 }}>
+                Tributação {modoMkt ? "(use o campo de imposto no marketplace)" : "(venda direta)"}
+              </span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: usarImposto && !modoMkt ? 12 : 0 }}>
+                {[
+                  { id: "none",      label: "Nenhum",       aliq: 0 },
+                  { id: "mei",       label: "MEI 4%",       aliq: 4 },
+                  { id: "simples",   label: "Simples 6%",   aliq: 6 },
+                  { id: "presumido", label: "Presumido 11%", aliq: 11.33 },
+                ].map(t => {
+                  const on = t.id === "none" ? !usarImposto : (usarImposto && impostoNF === t.aliq);
+                  return (
+                    <button key={t.id} disabled={modoMkt}
+                      onClick={() => { if (t.id === "none") { setUsarImposto(false); } else { setUsarImposto(true); setImpostoNF(t.aliq); } }}
+                      style={{ padding: "6px 10px", fontSize: 12, borderRadius: 7, cursor: modoMkt ? "default" : "pointer",
+                        fontWeight: on ? 600 : 400, color: on ? C.heat : C.mute,
+                        background: on ? C.heatDim : "transparent", border: `1px solid ${on ? C.heat : C.line}` }}>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {usarImposto && !modoMkt && (
+                <NumInput label="Alíquota personalizada" suffix="%" value={impostoNF} onChange={setImpostoNF} step="0.1" />
+              )}
             </div>
 
             {/* marketplace toggle */}
@@ -761,6 +798,34 @@ export default function Calculadora() {
               )}
               <Row label="Custo base" value={brl(calc.custoBasePeca)} accent />
               <Row label={`Com falha (+${taxaFalha}%)`} value={brl(calc.comFalhaPeca)} />
+
+              {/* composição visual do custo */}
+              {calc.custoBasePeca > 0 && (
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.line}` }}>
+                  <div style={{ fontSize: 11, color: C.mute, marginBottom: 8, letterSpacing: 0.3 }}>COMPOSIÇÃO DO CUSTO</div>
+                  {[
+                    { label: "Material",    valor: calc.material,    cor: "#ff6a2b" },
+                    { label: "Energia",     valor: calc.energia,     cor: "#37d6c5" },
+                    { label: "Depreciação", valor: calc.deprec,      cor: "#8b5cf6" },
+                    { label: "Manutenção",  valor: calc.manut,       cor: "#f59e0b" },
+                    { label: "Mão de obra", valor: calc.maoObra,     cor: "#6366f1" },
+                    { label: "Extras",      valor: calc.extrasTotal, cor: "#ec4899" },
+                  ].filter(x => x.valor > 0).map(({ label, valor, cor }) => {
+                    const pct = (valor / calc.custoBasePeca) * 100;
+                    return (
+                      <div key={label} style={{ marginBottom: 7 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: C.mute, marginBottom: 3 }}>
+                          <span>{label}</span>
+                          <span style={{ color: C.ink, fontVariantNumeric: "tabular-nums" }}>{pct.toFixed(0)}%</span>
+                        </div>
+                        <div style={{ height: 4, background: C.bg, borderRadius: 2 }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: cor, borderRadius: 2, transition: "width .3s" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div
@@ -951,6 +1016,12 @@ export default function Calculadora() {
                 ? "Salvar alterações"
                 : "Importar para catálogo"}
             </button>
+            <button onClick={salvarHistorico}
+              style={{ width: "100%", marginTop: 8, padding: "9px", borderRadius: 10,
+                border: `1px solid ${C.line}`, background: "transparent", color: C.mute, fontSize: 13, cursor: "pointer" }}>
+              Salvar no histórico
+            </button>
+
             {editandoId && !salvo && (
               <button
                 onClick={cancelarEdicao}
@@ -1073,6 +1144,40 @@ export default function Calculadora() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* histórico de cálculos */}
+        {historico.length > 0 && (
+          <div style={{ ...panelStyle, marginTop: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarHistorico ? 16 : 0 }}>
+              <button onClick={() => setMostrarHistorico(v => !v)}
+                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                <h2 style={{ ...heading, margin: 0 }}>Histórico · {historico.length} cálculos</h2>
+                <span style={{ fontSize: 12, color: C.mute }}>{mostrarHistorico ? "▲ ocultar" : "▼ ver"}</span>
+              </button>
+              <button onClick={() => { setHistorico([]); localStorage.removeItem("app3d:historico"); }}
+                style={{ fontSize: 12, color: C.mute, background: "none", border: `1px solid ${C.line}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+                Limpar
+              </button>
+            </div>
+            {mostrarHistorico && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 0.7fr 1fr 1fr 1fr", gap: 10, padding: "0 4px", fontSize: 11, color: C.mute, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  <span>Produto</span><span>Data</span><span style={{ textAlign: "right" }}>Custo</span><span style={{ textAlign: "right" }}>Preço</span><span style={{ textAlign: "right" }}>Lucro</span>
+                </div>
+                {historico.map(h => (
+                  <div key={h.id} style={{ display: "grid", gridTemplateColumns: "2fr 0.7fr 1fr 1fr 1fr", gap: 10, alignItems: "center",
+                    background: C.bg, border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 12px" }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.nome}</span>
+                    <span style={{ fontSize: 12, color: C.mute }}>{h.data}</span>
+                    <span style={{ fontSize: 13, color: C.mute, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{brl(h.custo)}</span>
+                    <span style={{ fontSize: 14, color: C.heat, fontWeight: 700, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{brl(h.preco)}</span>
+                    <span style={{ fontSize: 13, color: C.cyan, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{brl(h.lucro)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
