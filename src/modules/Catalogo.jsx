@@ -23,23 +23,27 @@ const panel = { background: C.panel, border: `1px solid ${C.line}`, borderRadius
 const heading = { fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: C.heat, margin: "0 0 18px", fontWeight: 700 };
 
 // ── Canais de venda com taxas ──────────────────────────────────
+// taxa: % sobre o preço de venda; taxaFixa: R$ por pedido/venda
 export const CANAIS_VENDA = [
-  { id: "vitrine",       nome: "Venda Direta / Vitrine", taxa: 0     },
-  { id: "instagram",    nome: "Instagram / WhatsApp",   taxa: 0     },
-  { id: "elo7",          nome: "Elo7",                  taxa: 0.12  },
-  { id: "shopee",        nome: "Shopee",                taxa: 0.13  },
-  { id: "mercadolivre", nome: "Mercado Livre",          taxa: 0.145 },
-  { id: "americanas",   nome: "Americanas / B2W",       taxa: 0.16  },
-  { id: "magalu",       nome: "Magalu",                 taxa: 0.16  },
+  { id: "vitrine",       nome: "Venda Direta / Vitrine", taxa: 0,     taxaFixa: 0    },
+  { id: "instagram",    nome: "Instagram / WhatsApp",   taxa: 0,     taxaFixa: 0    },
+  { id: "tiktok",       nome: "TikTok Shop",            taxa: 0.06,  taxaFixa: 4    },
+  { id: "elo7",          nome: "Elo7",                  taxa: 0.14,  taxaFixa: 0    },
+  { id: "shopee",        nome: "Shopee",                taxa: 0.20,  taxaFixa: 4    },
+  { id: "mercadolivre", nome: "Mercado Livre",          taxa: 0.16,  taxaFixa: 6    },
+  { id: "americanas",   nome: "Americanas / B2W",       taxa: 0.16,  taxaFixa: 0    },
+  { id: "magalu",       nome: "Magalu",                 taxa: 0.16,  taxaFixa: 0    },
+  { id: "amazon",       nome: "Amazon",                 taxa: 0.15,  taxaFixa: 0    },
+  { id: "etsy",         nome: "Etsy",                   taxa: 0.065, taxaFixa: 1.50 },
 ];
 
-// Dado o preço base (venda direta) e a taxa do canal,
-// calcula o preço que deve ser cobrado no canal para o vendedor receber o mesmo.
-// precoLista = precoBase / (1 - taxa)
-const precoParaCanal = (precoBase, custo, taxa) => {
+// precoLista: quanto cobrar no canal para receber o mesmo que na venda direta
+// Fórmula: precoLista × (1 - taxa%) − taxaFixa = precoBase
+// → precoLista = (precoBase + taxaFixa) / (1 - taxa%)
+const precoParaCanal = (precoBase, custo, taxa, taxaFixa = 0) => {
   if (!precoBase) return null;
-  const lista = taxa < 1 ? precoBase / (1 - taxa) : precoBase;
-  const liquido = lista * (1 - taxa); // ≈ precoBase
+  const lista = taxa < 1 ? (precoBase + taxaFixa) / (1 - taxa) : precoBase;
+  const liquido = lista * (1 - taxa) - taxaFixa; // ≈ precoBase
   const lucro = liquido - custo;
   const margem = liquido > 0 ? (lucro / liquido) * 100 : 0;
   return { lista, liquido, lucro, margem };
@@ -986,17 +990,23 @@ export default function Catalogo() {
                       </thead>
                       <tbody>
                         {CANAIS_VENDA.map(c => {
-                          const cv = varejo > 0 ? precoParaCanal(varejo, custo, c.taxa) : null;
-                          const ca = atacadoBase ? precoParaCanal(atacadoBase, custo, c.taxa) : null;
+                          const cv = varejo > 0 ? precoParaCanal(varejo, custo, c.taxa, c.taxaFixa) : null;
+                          const ca = atacadoBase ? precoParaCanal(atacadoBase, custo, c.taxa, c.taxaFixa) : null;
                           const cor = cv ? (cv.margem >= 40 ? C.green : cv.margem >= 20 ? C.amber : C.red) : C.mute;
-                          const isDireto = c.taxa === 0;
+                          const isDireto = c.taxa === 0 && c.taxaFixa === 0;
+                          const taxaLabel = (() => {
+                            if (c.taxa === 0 && c.taxaFixa === 0) return "—";
+                            const pct = c.taxa > 0 ? `${(c.taxa * 100).toFixed(1)}%` : "";
+                            const fix = c.taxaFixa > 0 ? `+R$${c.taxaFixa.toFixed(2).replace(".", ",")}` : "";
+                            return [pct, fix].filter(Boolean).join(" ");
+                          })();
                           return (
                             <tr key={c.id} style={{ borderTop: `1px solid ${C.line}`, background: isDireto ? "#37d6c508" : "transparent" }}>
                               <td style={{ padding: "8px 8px 8px 0", color: isDireto ? C.cyan : C.ink, fontWeight: isDireto ? 700 : 400, fontSize: 12 }}>
                                 {c.nome}{isDireto && <span style={{ marginLeft: 6, fontSize: 10, color: C.mute, fontWeight: 400 }}>base</span>}
                               </td>
-                              <td style={{ padding: "8px", textAlign: "right", color: C.mute }}>
-                                {c.taxa > 0 ? `${(c.taxa * 100).toFixed(1)}%` : "—"}
+                              <td style={{ padding: "8px", textAlign: "right", color: C.mute, whiteSpace: "nowrap" }}>
+                                {taxaLabel}
                               </td>
                               {cv && (
                                 <td style={{ padding: "8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
