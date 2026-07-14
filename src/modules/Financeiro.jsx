@@ -98,6 +98,11 @@ export default function Financeiro() {
   const [aba, setAba] = useState("venda"); // venda | despesa | dashboard
   const [verLancamentos, setVerLancamentos] = useState(null); // null | "vendas" | "despesas" | "todos"
   const [mes, setMes] = useState(mesAtual());
+  const [metaMensal, setMetaMensal] = useState(() => {
+    try { return parseFloat(localStorage.getItem("app3d:meta_mensal") || "0") || 0; } catch { return 0; }
+  });
+  const [editandoMeta, setEditandoMeta] = useState(false);
+  const [metaInput, setMetaInput] = useState("");
 
   // editar venda
   const [editVenda, setEditVenda]   = useState(null);
@@ -684,6 +689,50 @@ export default function Financeiro() {
           <KPI titulo="Despesas" valor={brl(dados.despesaTotal + dados.custoVendas)} cor={C.red} sub="custo + gastos" />
           <KPI titulo="Resultado do mês" valor={brl(dados.resultado)} cor={dados.resultado >= 0 ? C.cyan : C.red} sub="entradas − saídas" />
           <KPI titulo="Ticket médio" valor={brl(dados.ticket)} sub="por venda" />
+        </div>
+
+        {/* Meta de receita mensal */}
+        <div style={{ ...panel, marginBottom: 16, padding: "16px 20px" }}>
+          {editandoMeta ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12.5, color: C.mute, whiteSpace: "nowrap" }}>Meta de receita:</span>
+              <input type="number" step="100" placeholder="R$ 0,00" value={metaInput}
+                onChange={e => setMetaInput(e.target.value)}
+                style={{ ...field, flex: 1, padding: "7px 10px", fontSize: 14 }} autoFocus />
+              <button onClick={() => {
+                const v = parseFloat(metaInput) || 0;
+                setMetaMensal(v);
+                localStorage.setItem("app3d:meta_mensal", String(v));
+                setEditandoMeta(false);
+              }} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: C.green, color: "#0c1410", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Salvar</button>
+              <button onClick={() => setEditandoMeta(false)} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, background: "transparent", color: C.mute, fontSize: 13, cursor: "pointer" }}>Cancelar</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.mute, marginBottom: 6 }}>
+                  <span>Meta de receita do mês</span>
+                  {metaMensal > 0 && (
+                    <span style={{ color: dados.receita >= metaMensal ? C.green : C.ink, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                      {brl(dados.receita)} / {brl(metaMensal)} ({Math.min(100, Math.round((dados.receita / metaMensal) * 100))}%)
+                    </span>
+                  )}
+                </div>
+                {metaMensal > 0 ? (
+                  <div style={{ height: 8, background: C.bg, borderRadius: 4 }}>
+                    <div style={{ height: "100%", width: `${Math.min(100, (dados.receita / metaMensal) * 100)}%`,
+                      background: dados.receita >= metaMensal ? C.green : C.heat, borderRadius: 4, transition: "width .4s" }} />
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: C.mute }}>Nenhuma meta definida</div>
+                )}
+              </div>
+              <button onClick={() => { setMetaInput(String(metaMensal || "")); setEditandoMeta(true); }}
+                style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.line}`, background: "transparent", color: C.mute, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
+                {metaMensal > 0 ? "Editar meta" : "Definir meta"}
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 16, alignItems: "start" }}>

@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useConfig } from "../lib/ConfigContext";
+import { supabase } from "../lib/supabase";
 
 const C = {
   bg: "#0e1014", card: "#15171e", line: "#2e3342", ink: "#eef1f6",
@@ -14,6 +15,24 @@ export default function Configuracoes() {
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const inputRef = useRef(null);
+  const [userId, setUserId] = useState("");
+  const [linkCopiado, setLinkCopiado] = useState(false);
+  const [waNumber, setWaNumber] = useState(() => localStorage.getItem("app3d:wa_number") || "");
+  const [waSalvo, setWaSalvo] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => { if (user) setUserId(user.id); });
+  }, []);
+
+  const vitrineUrl = userId ? `${window.location.origin}${window.location.pathname}?vitrine=${userId}${waNumber ? `&wa=${waNumber.replace(/\D/g, "")}` : ""}` : "";
+
+  const copiarLink = () => {
+    if (!vitrineUrl) return;
+    navigator.clipboard.writeText(vitrineUrl).then(() => {
+      setLinkCopiado(true);
+      setTimeout(() => setLinkCopiado(false), 2000);
+    });
+  };
 
   const handleLogo = (e) => {
     const file = e.target.files?.[0];
@@ -114,6 +133,44 @@ export default function Configuracoes() {
             color: "#fff", fontWeight: 700, fontSize: 14.5, cursor: "pointer", transition: "background 0.3s" }}>
           {salvando ? "Salvando..." : salvo ? "✓ Salvo!" : "Salvar configurações"}
         </button>
+
+        {/* Vitrine pública */}
+        <div style={{ marginTop: 32, paddingTop: 28, borderTop: `1px solid ${C.line}` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 4 }}>Vitrine pública</div>
+          <p style={{ fontSize: 12.5, color: C.mute, margin: "0 0 16px", lineHeight: 1.6 }}>
+            Link público da sua loja. Qualquer pessoa com o link pode ver seus produtos e enviar pedido via WhatsApp.
+          </p>
+
+          <label style={{ display: "block", marginBottom: 14 }}>
+            <span style={{ display: "block", fontSize: 12, color: C.mute, marginBottom: 6 }}>Número WhatsApp (recebe pedidos)</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                placeholder="5521999999999"
+                value={waNumber}
+                onChange={e => setWaNumber(e.target.value)}
+                style={{ background: "#0e1014", border: `1px solid ${C.line}`, borderRadius: 8, color: C.ink, padding: "9px 12px", fontSize: 14, outline: "none", flex: 1 }}
+              />
+              <button onClick={() => {
+                localStorage.setItem("app3d:wa_number", waNumber);
+                setWaSalvo(true); setTimeout(() => setWaSalvo(false), 1800);
+              }} style={{ padding: "9px 16px", borderRadius: 8, border: "none", background: waSalvo ? C.green : "#25D366", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                {waSalvo ? "✓ Salvo" : "Salvar"}
+              </button>
+            </div>
+          </label>
+
+          {vitrineUrl && (
+            <div style={{ background: "#0e1014", border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 12.5, color: C.mute, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{vitrineUrl}</span>
+              <button onClick={copiarLink}
+                style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: linkCopiado ? C.green : cor,
+                  color: "#fff", fontWeight: 700, fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                {linkCopiado ? "✓ Copiado!" : "Copiar link"}
+              </button>
+            </div>
+          )}
+          <p style={{ fontSize: 11.5, color: C.mute, margin: 0 }}>Sem login necessário para o cliente acessar.</p>
+        </div>
       </div>
     </div>
   );
