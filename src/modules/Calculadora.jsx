@@ -151,12 +151,22 @@ export default function Calculadora() {
   const [userId, setUserId] = useState("");
 
   useEffect(() => {
+    // Carrega do localStorage imediatamente como fallback
+    try {
+      const local = JSON.parse(localStorage.getItem("app3d:catalogo_calc") || "null");
+      if (local?.length) setCatalogo(local);
+    } catch {}
+
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
-        const { data } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
-        if (data?.produtos) setCatalogo(data.produtos);
+        const { data, error } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
+        if (error) console.error("[Calculadora] Supabase load error:", error);
+        if (data?.produtos) {
+          setCatalogo(data.produtos);
+          localStorage.setItem("app3d:catalogo_calc", JSON.stringify(data.produtos));
+        }
       }
     })();
   }, []);
@@ -304,7 +314,11 @@ export default function Calculadora() {
 
   const persistir = async (lista) => {
     setCatalogo(lista);
-    if (userId) await supabase.from("catalogo").upsert({ user_id: userId, produtos: lista });
+    localStorage.setItem("app3d:catalogo_calc", JSON.stringify(lista));
+    if (userId) {
+      const { error } = await supabase.from("catalogo").upsert({ user_id: userId, produtos: lista });
+      if (error) console.error("[Calculadora] Supabase save error:", error);
+    }
   };
 
   const salvarNoCatalogo = () => {
@@ -319,6 +333,7 @@ export default function Calculadora() {
       taxaFalha, margem,
       modoMkt, presetId, comissao, taxaFixa, imposto, freteEmbutido,
       usarImposto, impostoNF,
+      usarSegFilamento, precoKg2, pctFilamento1,
     };
     const item = {
       id: editandoId || Date.now(),
@@ -373,6 +388,11 @@ export default function Calculadora() {
       setModoMkt(r.modoMkt); setPresetId(r.presetId); setComissao(r.comissao);
       setTaxaFixa(r.taxaFixa); setImposto(r.imposto); setFreteEmbutido(r.freteEmbutido);
       setUsarImposto(r.usarImposto); setImpostoNF(r.impostoNF);
+      if (r.usarSegFilamento !== undefined) {
+        setUsarSegFilamento(r.usarSegFilamento);
+        setPrecoKg2(r.precoKg2 ?? 80);
+        setPctFilamento1(r.pctFilamento1 ?? 70);
+      }
     } else {
       // produto importado/criado no catálogo — preenche o que existe e reseta o resto
       setPesoG(p.pesoG || 45);
