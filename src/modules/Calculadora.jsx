@@ -1158,10 +1158,14 @@ export default function Calculadora() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        const copia = { ...p, id: Date.now(), nome: p.nome + " (cópia)" };
+                        const novoId = String(Date.now());
+                        const copia = { ...p, id: novoId, nome: p.nome + " (cópia)" };
                         const nova = [...catalogo, copia];
                         persistir(nova);
-                        carregarProduto(copia);
+                        // carrega do original (receita garantida), depois sobrescreve nome e id
+                        carregarProduto(p);
+                        setEditandoId(novoId);
+                        setNomeProduto(p.nome + " (cópia)");
                       }}
                       style={{ background: "transparent", border: "none", color: C.cyan, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "2px 3px" }}
                       title="Duplicar e editar"
