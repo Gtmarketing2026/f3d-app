@@ -157,16 +157,25 @@ export default function Calculadora() {
       if (local?.length) setCatalogo(local);
     } catch {}
 
-    // Carrega do Supabase (autoritativo)
+    // Carrega do Supabase e mescla com localStorage (evita perder saves em race condition)
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
         const { data, error } = await supabase.from("catalogo").select("produtos").eq("user_id", user.id).single();
         if (error) console.error("[Calculadora] Supabase load error:", error);
-        if (data?.produtos) {
-          setCatalogo(data.produtos);
-          localStorage.setItem("app3d:catalogo_calc", JSON.stringify(data.produtos));
+        const remoto = data?.produtos || [];
+        let local = [];
+        try { local = JSON.parse(localStorage.getItem("app3d:catalogo_calc") || "[]"); } catch {}
+        // Mescla: parte do remoto como base, adiciona do local o que não está no remoto
+        const ids = new Set(remoto.map(p => String(p.id)));
+        const extras = local.filter(p => !ids.has(String(p.id)));
+        const merged = [...remoto, ...extras];
+        setCatalogo(merged);
+        localStorage.setItem("app3d:catalogo_calc", JSON.stringify(merged));
+        // Resync Supabase se havia itens só no local
+        if (extras.length > 0) {
+          await supabase.from("catalogo").upsert({ user_id: user.id, produtos: merged });
         }
       }
     })();
