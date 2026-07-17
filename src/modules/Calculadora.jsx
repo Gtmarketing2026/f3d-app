@@ -157,18 +157,7 @@ export default function Calculadora() {
       if (local?.length) setCatalogo(local);
     } catch {}
 
-    // Produto vindo do Catálogo via botão 🧮
-    const handleGotoCalc = () => {
-      try {
-        const p = JSON.parse(localStorage.getItem("app3d:goto_calc") || "null");
-        if (p) { carregarProduto(p); localStorage.removeItem("app3d:goto_calc"); }
-      } catch {}
-    };
-    // Checa imediatamente (evento pode ter disparado antes do mount)
-    handleGotoCalc();
-    window.addEventListener("app3d:goto_calc", handleGotoCalc);
-    return () => window.removeEventListener("app3d:goto_calc", handleGotoCalc);
-
+    // Carrega do Supabase (autoritativo)
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -181,6 +170,17 @@ export default function Calculadora() {
         }
       }
     })();
+
+    // Produto vindo do Catálogo via botão 🧮
+    const handleGotoCalc = () => {
+      try {
+        const p = JSON.parse(localStorage.getItem("app3d:goto_calc") || "null");
+        if (p) { carregarProduto(p); localStorage.removeItem("app3d:goto_calc"); }
+      } catch {}
+    };
+    handleGotoCalc(); // checa imediatamente (evento pode ter disparado antes do mount)
+    window.addEventListener("app3d:goto_calc", handleGotoCalc);
+    return () => window.removeEventListener("app3d:goto_calc", handleGotoCalc);
   }, []);
 
   // custos extras (pré-setados, editáveis)
