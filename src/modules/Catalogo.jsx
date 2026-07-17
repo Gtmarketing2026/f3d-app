@@ -321,13 +321,14 @@ export default function Catalogo() {
   // ── criar / editar via modal ──────────────────────────────────
   const novoProduto = () => setModal({
     id: null, nome: "", canal: CANAIS_VENDA[0].nome, categoria: "", subcategoria: "", descricao: "", imagem: "",
-    custo: "", precoVarejo: "", faixas: [],
+    custo: "", precoVarejo: "", faixas: [], pesoG: "", tempoH: "",
   });
   const editar = (p) => setModal({
     ...p,
     custo: p.custo ?? "", precoVarejo: p.precoVarejo ?? p.preco ?? "",
     faixas: (p.faixas || []).map((f) => ({ ...f })),
     categoria: p.categoria || "", subcategoria: p.subcategoria || "",
+    pesoG: p.pesoG ?? "", tempoH: p.tempoH ?? "",
   });
   const addFaixa = () => setModal((m) => ({
     ...m, faixas: [...(m.faixas || []), { id: Date.now(), qtd: "", preco: "" }],
@@ -354,6 +355,8 @@ export default function Catalogo() {
       descricao: modal.descricao.trim(),
       imagem: modal.imagem.trim(),
       custo, precoVarejo, faixas,
+      pesoG: parseFloat(modal.pesoG) || 0,
+      tempoH: parseFloat(modal.tempoH) || 0,
       preco: precoVarejo,           // compat
       lucro: precoVarejo - custo,   // compat
     };
@@ -879,6 +882,17 @@ export default function Catalogo() {
               <span style={label}>Descrição</span>
               <input value={modal.descricao} onChange={(e) => setModal({ ...modal, descricao: e.target.value })} style={field} placeholder="Aparece na vitrine do cliente" />
             </label>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <label style={{ display: "block", flex: 1 }}>
+                <span style={label}>Gramatura (g)</span>
+                <input type="number" step="1" min="0" value={modal.pesoG} onChange={(e) => setModal({ ...modal, pesoG: e.target.value })} style={field} placeholder="Ex.: 45" />
+              </label>
+              <label style={{ display: "block", flex: 1 }}>
+                <span style={label}>Tempo de impressão (h)</span>
+                <input type="number" step="0.5" min="0" value={modal.tempoH} onChange={(e) => setModal({ ...modal, tempoH: e.target.value })} style={field} placeholder="Ex.: 4.5" />
+              </label>
+            </div>
 
             {/* imagem */}
             <div style={{ marginBottom: 14 }}>
