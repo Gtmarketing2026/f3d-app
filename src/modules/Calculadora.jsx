@@ -336,8 +336,13 @@ export default function Calculadora() {
   const persistir = async (lista) => {
     setCatalogo(lista);
     localStorage.setItem("app3d:catalogo_calc", JSON.stringify(lista));
-    if (userId) {
-      const { error } = await supabase.from("catalogo").upsert({ user_id: userId, produtos: lista });
+    let uid = userId;
+    if (!uid) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) { uid = user.id; setUserId(user.id); }
+    }
+    if (uid) {
+      const { error } = await supabase.from("catalogo").upsert({ user_id: uid, produtos: lista });
       if (error) console.error("[Calculadora] Supabase save error:", error);
     }
   };
