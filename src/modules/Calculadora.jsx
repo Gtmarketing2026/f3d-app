@@ -170,7 +170,7 @@ export default function Calculadora() {
         // Mescla: parte do remoto como base, adiciona do local o que não está no remoto
         const ids = new Set(remoto.map(p => String(p.id)));
         const extras = local.filter(p => !ids.has(String(p.id)));
-        const merged = [...remoto, ...extras];
+        const merged = [...extras, ...remoto];
         setCatalogo(merged);
         localStorage.setItem("app3d:catalogo_calc", JSON.stringify(merged));
         // Resync Supabase se havia itens só no local
