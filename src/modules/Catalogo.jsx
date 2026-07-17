@@ -682,6 +682,10 @@ export default function Catalogo() {
                                   {cv ? `${cv.margem.toFixed(0)}%` : "—"}
                                 </td>
                                 <td className="noprint" style={{ padding: "11px 0", textAlign: "right" }}>
+                                  <button onClick={() => {
+                                    localStorage.setItem("app3d:goto_calc", JSON.stringify(p));
+                                    window.dispatchEvent(new Event("app3d:goto_calc"));
+                                  }} style={{ ...btnMini(C.cyan), marginRight: 4 }} title="Abrir na Calculadora">🧮</button>
                                   <button onClick={() => editar(p)} style={{ ...btnMini(C.mute), marginRight: 4 }}>editar</button>
                                   <button onClick={() => excluir(p.id)} style={btnMini(C.mute)}>×</button>
                                 </td>

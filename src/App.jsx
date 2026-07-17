@@ -41,6 +41,12 @@ function AppInner() {
   const corAtiva = config.cor_primaria || C.heat;
   const corAtivaDim = corAtiva + "22";
 
+  useEffect(() => {
+    const handler = () => setAtivo("calculadora");
+    window.addEventListener("app3d:goto_calc", handler);
+    return () => window.removeEventListener("app3d:goto_calc", handler);
+  }, []);
+
   const Conteudo = ativo === "planos" ? Planos : ativo === "configuracoes" ? Configuracoes : COMPONENTES[ativo];
   const podeVer = ativo === "planos" || ativo === "configuracoes" || tem(ativo);
 

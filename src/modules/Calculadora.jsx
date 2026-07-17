@@ -157,6 +157,18 @@ export default function Calculadora() {
       if (local?.length) setCatalogo(local);
     } catch {}
 
+    // Produto vindo do Catálogo via botão 🧮
+    const handleGotoCalc = () => {
+      try {
+        const p = JSON.parse(localStorage.getItem("app3d:goto_calc") || "null");
+        if (p) { carregarProduto(p); localStorage.removeItem("app3d:goto_calc"); }
+      } catch {}
+    };
+    // Checa imediatamente (evento pode ter disparado antes do mount)
+    handleGotoCalc();
+    window.addEventListener("app3d:goto_calc", handleGotoCalc);
+    return () => window.removeEventListener("app3d:goto_calc", handleGotoCalc);
+
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
