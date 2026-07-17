@@ -328,7 +328,8 @@ export default function Catalogo() {
     custo: p.custo ?? "", precoVarejo: p.precoVarejo ?? p.preco ?? "",
     faixas: (p.faixas || []).map((f) => ({ ...f })),
     categoria: p.categoria || "", subcategoria: p.subcategoria || "",
-    pesoG: p.pesoG ?? "", tempoH: p.tempoH ?? "",
+    pesoG: p.pesoG || p.receita?.pesoG || "",
+    tempoH: p.tempoH || (p.receita ? (p.receita.tempoHoras || 0) + (p.receita.tempoMinutos || 0) / 60 : "") || "",
   });
   const addFaixa = () => setModal((m) => ({
     ...m, faixas: [...(m.faixas || []), { id: Date.now(), qtd: "", preco: "" }],
